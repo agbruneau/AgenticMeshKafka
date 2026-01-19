@@ -4,6 +4,7 @@ package observability
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,11 +36,22 @@ type Metrics struct {
 	EventsInFlight    *prometheus.GaugeVec
 }
 
-// DefaultMetrics creates and registers default metrics.
-var DefaultMetrics = NewMetrics("edalab")
+var (
+	defaultMetrics     *Metrics
+	defaultMetricsOnce sync.Once
+)
 
 // NewMetrics creates a new Metrics instance with the given namespace.
+// Uses sync.Once to ensure metrics are only registered once.
 func NewMetrics(namespace string) *Metrics {
+	defaultMetricsOnce.Do(func() {
+		defaultMetrics = createMetrics(namespace)
+	})
+	return defaultMetrics
+}
+
+// createMetrics actually creates the metrics (called only once).
+func createMetrics(namespace string) *Metrics {
 	return &Metrics{
 		MessagesProduced: promauto.NewCounterVec(
 			prometheus.CounterOpts{

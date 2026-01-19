@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/hamba/avro/v2"
 	"github.com/riferrei/srclient"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // Message represents a consumed Kafka message.
@@ -74,28 +74,42 @@ func DefaultConsumerConfig(bootstrapServers, schemaRegistryURL, groupID string) 
 
 // AvroConsumer implements Consumer with Avro deserialization.
 type AvroConsumer struct {
-	consumer     *kafka.Consumer
+	client       *kgo.Client
 	schemaClient *srclient.SchemaRegistryClient
 	avroCache    map[int]avro.Schema
 	mu           sync.RWMutex
-	running      bool
+	topics       []string
+	autoCommit   bool
 }
 
 // NewAvroConsumer creates a new Avro-enabled Kafka consumer.
 func NewAvroConsumer(config ConsumerConfig) (*AvroConsumer, error) {
-	kafkaConfig := &kafka.ConfigMap{
-		"bootstrap.servers":        config.BootstrapServers,
-		"group.id":                 config.GroupID,
-		"auto.offset.reset":        config.AutoOffsetReset,
-		"enable.auto.commit":       config.EnableAutoCommit,
-		"session.timeout.ms":       config.SessionTimeoutMs,
-		"heartbeat.interval.ms":    config.HeartbeatMs,
-		"max.poll.interval.ms":     config.MaxPollInterval,
-		"enable.partition.eof":     false,
-		"go.events.channel.enable": false,
+	// Determine start offset
+	var startOffset kgo.Offset
+	switch config.AutoOffsetReset {
+	case "earliest":
+		startOffset = kgo.NewOffset().AtStart()
+	case "latest":
+		startOffset = kgo.NewOffset().AtEnd()
+	default:
+		startOffset = kgo.NewOffset().AtStart()
 	}
 
-	consumer, err := kafka.NewConsumer(kafkaConfig)
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(config.BootstrapServers),
+		kgo.ConsumerGroup(config.GroupID),
+		kgo.ConsumeResetOffset(startOffset),
+		kgo.SessionTimeout(time.Duration(config.SessionTimeoutMs) * time.Millisecond),
+		kgo.HeartbeatInterval(time.Duration(config.HeartbeatMs) * time.Millisecond),
+	}
+
+	if config.EnableAutoCommit {
+		opts = append(opts, kgo.AutoCommitInterval(5*time.Second))
+	} else {
+		opts = append(opts, kgo.DisableAutoCommit())
+	}
+
+	client, err := kgo.NewClient(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka consumer: %w", err)
 	}
@@ -103,150 +117,145 @@ func NewAvroConsumer(config ConsumerConfig) (*AvroConsumer, error) {
 	schemaClient := srclient.CreateSchemaRegistryClient(config.SchemaRegistryURL)
 
 	return &AvroConsumer{
-		consumer:     consumer,
+		client:       client,
 		schemaClient: schemaClient,
 		avroCache:    make(map[int]avro.Schema),
+		autoCommit:   config.EnableAutoCommit,
 	}, nil
 }
 
 // Subscribe subscribes to the given topics.
 func (c *AvroConsumer) Subscribe(topics []string) error {
-	return c.consumer.SubscribeTopics(topics, nil)
+	c.topics = topics
+	c.client.AddConsumeTopics(topics...)
+	return nil
 }
 
 // Consume starts consuming messages and calls the handler for each.
 // This method blocks until the context is cancelled or an unrecoverable error occurs.
 func (c *AvroConsumer) Consume(ctx context.Context, handler MessageHandler) error {
-	c.running = true
-	defer func() { c.running = false }()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			msg, err := c.consumer.ReadMessage(time.Second)
-			if err != nil {
-				// Timeout is not an error, just continue
-				if kafkaErr, ok := err.(kafka.Error); ok {
-					if kafkaErr.Code() == kafka.ErrTimedOut {
-						continue
+			fetches := c.client.PollFetches(ctx)
+			if errs := fetches.Errors(); len(errs) > 0 {
+				for _, err := range errs {
+					if err.Err == context.Canceled || err.Err == context.DeadlineExceeded {
+						return err.Err
 					}
-					// Handle other Kafka errors
-					if kafkaErr.IsFatal() {
-						return fmt.Errorf("fatal Kafka error: %w", err)
-					}
+					fmt.Printf("Fetch error: topic=%s partition=%d error=%v\n", err.Topic, err.Partition, err.Err)
 				}
-				continue
 			}
 
-			// Deserialize message
-			message, err := c.deserializeMessage(msg)
-			if err != nil {
-				// Log error but continue consuming
-				fmt.Printf("Failed to deserialize message: %v\n", err)
-				continue
-			}
+			fetches.EachRecord(func(record *kgo.Record) {
+				message, err := c.deserializeRecord(record)
+				if err != nil {
+					fmt.Printf("Failed to deserialize message: %v\n", err)
+					return
+				}
 
-			// Call handler
-			if err := handler(ctx, message); err != nil {
-				// Log error but continue consuming
-				fmt.Printf("Handler error: %v\n", err)
-			}
+				if err := handler(ctx, message); err != nil {
+					fmt.Printf("Handler error: %v\n", err)
+				}
+			})
 		}
 	}
 }
 
 // ConsumeOnce consumes a single message with timeout.
 func (c *AvroConsumer) ConsumeOnce(ctx context.Context, timeout time.Duration) (*Message, error) {
-	deadline := time.Now().Add(timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-	for time.Now().Before(deadline) {
+	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("timeout waiting for message")
 		default:
-			remaining := time.Until(deadline)
-			if remaining <= 0 {
-				return nil, fmt.Errorf("timeout waiting for message")
-			}
-
-			pollTimeout := remaining
-			if pollTimeout > time.Second {
-				pollTimeout = time.Second
-			}
-
-			msg, err := c.consumer.ReadMessage(pollTimeout)
-			if err != nil {
-				if kafkaErr, ok := err.(kafka.Error); ok {
-					if kafkaErr.Code() == kafka.ErrTimedOut {
-						continue
+			fetches := c.client.PollFetches(ctx)
+			if errs := fetches.Errors(); len(errs) > 0 {
+				for _, err := range errs {
+					if err.Err == context.Canceled || err.Err == context.DeadlineExceeded {
+						return nil, fmt.Errorf("timeout waiting for message")
 					}
 				}
-				return nil, err
+				continue
 			}
 
-			return c.deserializeMessage(msg)
+			var firstMessage *Message
+			fetches.EachRecord(func(record *kgo.Record) {
+				if firstMessage != nil {
+					return
+				}
+				msg, err := c.deserializeRecord(record)
+				if err == nil {
+					firstMessage = msg
+				}
+			})
+
+			if firstMessage != nil {
+				return firstMessage, nil
+			}
 		}
 	}
-
-	return nil, fmt.Errorf("timeout waiting for message")
 }
 
 // Commit commits the current offsets.
 func (c *AvroConsumer) Commit() error {
-	_, err := c.consumer.Commit()
-	return err
+	return c.client.CommitUncommittedOffsets(context.Background())
 }
 
 // Close closes the consumer.
 func (c *AvroConsumer) Close() error {
-	return c.consumer.Close()
+	c.client.Close()
+	return nil
 }
 
-// deserializeMessage converts a Kafka message to our Message type.
-func (c *AvroConsumer) deserializeMessage(msg *kafka.Message) (*Message, error) {
+// deserializeRecord converts a franz-go record to our Message type.
+func (c *AvroConsumer) deserializeRecord(record *kgo.Record) (*Message, error) {
 	message := &Message{
-		Topic:     *msg.TopicPartition.Topic,
-		Partition: msg.TopicPartition.Partition,
-		Offset:    int64(msg.TopicPartition.Offset),
-		Key:       string(msg.Key),
-		RawValue:  msg.Value,
+		Topic:     record.Topic,
+		Partition: record.Partition,
+		Offset:    record.Offset,
+		Key:       string(record.Key),
+		RawValue:  record.Value,
 		Headers:   make(map[string]string),
-		Timestamp: msg.Timestamp,
+		Timestamp: record.Timestamp,
 	}
 
 	// Parse headers
-	for _, header := range msg.Headers {
+	for _, header := range record.Headers {
 		message.Headers[header.Key] = string(header.Value)
 	}
 
 	// Try to deserialize as Avro
-	if len(msg.Value) > 5 && msg.Value[0] == 0 {
+	if len(record.Value) > 5 && record.Value[0] == 0 {
 		// Has Confluent wire format
-		schemaID := int(binary.BigEndian.Uint32(msg.Value[1:5]))
+		schemaID := int(binary.BigEndian.Uint32(record.Value[1:5]))
 		message.SchemaID = schemaID
 
 		schema, err := c.getAvroSchema(schemaID)
 		if err != nil {
 			// Could not get schema, return raw value
-			message.Value = msg.Value
+			message.Value = record.Value
 			return message, nil
 		}
 
 		// Deserialize Avro payload
-		avroPayload := msg.Value[5:]
+		avroPayload := record.Value[5:]
 		var value interface{}
 		if err := avro.Unmarshal(schema, avroPayload, &value); err != nil {
 			// Deserialization failed, return raw value
-			message.Value = msg.Value
+			message.Value = record.Value
 			return message, nil
 		}
 
 		message.Value = value
 	} else {
 		// Not Avro format, return raw value
-		message.Value = msg.Value
+		message.Value = record.Value
 	}
 
 	return message, nil
@@ -306,26 +315,27 @@ func (c *AvroConsumer) getAvroSchema(schemaID int) (avro.Schema, error) {
 
 // SimpleConsumer is a consumer without Avro deserialization.
 type SimpleConsumer struct {
-	consumer *kafka.Consumer
+	client *kgo.Client
 }
 
 // NewSimpleConsumer creates a simple Kafka consumer without Schema Registry.
 func NewSimpleConsumer(bootstrapServers, groupID string) (*SimpleConsumer, error) {
-	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"group.id":          groupID,
-		"auto.offset.reset": "earliest",
-	})
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(bootstrapServers),
+		kgo.ConsumerGroup(groupID),
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SimpleConsumer{consumer: consumer}, nil
+	return &SimpleConsumer{client: client}, nil
 }
 
 // Subscribe subscribes to topics.
 func (c *SimpleConsumer) Subscribe(topics []string) error {
-	return c.consumer.SubscribeTopics(topics, nil)
+	c.client.AddConsumeTopics(topics...)
+	return nil
 }
 
 // Consume starts consuming messages.
@@ -335,68 +345,89 @@ func (c *SimpleConsumer) Consume(ctx context.Context, handler MessageHandler) er
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			msg, err := c.consumer.ReadMessage(time.Second)
-			if err != nil {
-				if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
-					continue
+			fetches := c.client.PollFetches(ctx)
+			if errs := fetches.Errors(); len(errs) > 0 {
+				for _, err := range errs {
+					if err.Err == context.Canceled || err.Err == context.DeadlineExceeded {
+						return err.Err
+					}
 				}
 				continue
 			}
 
-			message := &Message{
-				Topic:     *msg.TopicPartition.Topic,
-				Partition: msg.TopicPartition.Partition,
-				Offset:    int64(msg.TopicPartition.Offset),
-				Key:       string(msg.Key),
-				Value:     msg.Value,
-				RawValue:  msg.Value,
-				Headers:   make(map[string]string),
-				Timestamp: msg.Timestamp,
-			}
+			fetches.EachRecord(func(record *kgo.Record) {
+				message := &Message{
+					Topic:     record.Topic,
+					Partition: record.Partition,
+					Offset:    record.Offset,
+					Key:       string(record.Key),
+					Value:     record.Value,
+					RawValue:  record.Value,
+					Headers:   make(map[string]string),
+					Timestamp: record.Timestamp,
+				}
 
-			for _, h := range msg.Headers {
-				message.Headers[h.Key] = string(h.Value)
-			}
+				for _, h := range record.Headers {
+					message.Headers[h.Key] = string(h.Value)
+				}
 
-			if err := handler(ctx, message); err != nil {
-				fmt.Printf("Handler error: %v\n", err)
-			}
+				if err := handler(ctx, message); err != nil {
+					fmt.Printf("Handler error: %v\n", err)
+				}
+			})
 		}
 	}
 }
 
 // ConsumeOnce consumes a single message.
 func (c *SimpleConsumer) ConsumeOnce(ctx context.Context, timeout time.Duration) (*Message, error) {
-	msg, err := c.consumer.ReadMessage(timeout)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-	message := &Message{
-		Topic:     *msg.TopicPartition.Topic,
-		Partition: msg.TopicPartition.Partition,
-		Offset:    int64(msg.TopicPartition.Offset),
-		Key:       string(msg.Key),
-		Value:     msg.Value,
-		RawValue:  msg.Value,
-		Headers:   make(map[string]string),
-		Timestamp: msg.Timestamp,
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting for message")
+		default:
+			fetches := c.client.PollFetches(ctx)
+			if errs := fetches.Errors(); len(errs) > 0 {
+				continue
+			}
 
-	for _, h := range msg.Headers {
-		message.Headers[h.Key] = string(h.Value)
-	}
+			var firstMessage *Message
+			fetches.EachRecord(func(record *kgo.Record) {
+				if firstMessage != nil {
+					return
+				}
+				firstMessage = &Message{
+					Topic:     record.Topic,
+					Partition: record.Partition,
+					Offset:    record.Offset,
+					Key:       string(record.Key),
+					Value:     record.Value,
+					RawValue:  record.Value,
+					Headers:   make(map[string]string),
+					Timestamp: record.Timestamp,
+				}
+				for _, h := range record.Headers {
+					firstMessage.Headers[h.Key] = string(h.Value)
+				}
+			})
 
-	return message, nil
+			if firstMessage != nil {
+				return firstMessage, nil
+			}
+		}
+	}
 }
 
 // Commit commits offsets.
 func (c *SimpleConsumer) Commit() error {
-	_, err := c.consumer.Commit()
-	return err
+	return c.client.CommitUncommittedOffsets(context.Background())
 }
 
 // Close closes the consumer.
 func (c *SimpleConsumer) Close() error {
-	return c.consumer.Close()
+	c.client.Close()
+	return nil
 }

@@ -4,13 +4,14 @@ package kafka
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/hamba/avro/v2"
 	"github.com/riferrei/srclient"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // Producer defines the interface for producing messages to Kafka.
@@ -41,6 +42,7 @@ type ProducerConfig struct {
 	LingerMs          int
 	BatchSize         int
 	CompressionType   string
+	UseJSON           bool // Use JSON serialization instead of Avro (for testing)
 }
 
 // DefaultProducerConfig returns a producer config with sensible defaults.
@@ -59,41 +61,68 @@ func DefaultProducerConfig(bootstrapServers, schemaRegistryURL string) ProducerC
 
 // AvroProducer implements Producer with Avro serialization.
 type AvroProducer struct {
-	producer     *kafka.Producer
+	client       *kgo.Client
 	schemaClient *srclient.SchemaRegistryClient
 	schemaCache  map[string]*srclient.Schema
 	avroCache    map[int]avro.Schema
 	mu           sync.RWMutex
+	useJSON      bool // Use JSON serialization instead of Avro
 }
 
 // NewAvroProducer creates a new Avro-enabled Kafka producer.
 func NewAvroProducer(config ProducerConfig) (*AvroProducer, error) {
-	kafkaConfig := &kafka.ConfigMap{
-		"bootstrap.servers":   config.BootstrapServers,
-		"acks":                config.Acks,
-		"enable.idempotence":  config.EnableIdempotence,
-		"max.in.flight":       config.MaxInFlight,
-		"linger.ms":           config.LingerMs,
-		"batch.size":          config.BatchSize,
-		"compression.type":    config.CompressionType,
-		"retries":             3,
-		"retry.backoff.ms":    100,
-		"request.timeout.ms":  30000,
-		"delivery.timeout.ms": 120000,
+	// Parse acks setting
+	var acks kgo.Acks
+	switch config.Acks {
+	case "all", "-1":
+		acks = kgo.AllISRAcks()
+	case "1":
+		acks = kgo.LeaderAck()
+	case "0":
+		acks = kgo.NoAck()
+	default:
+		acks = kgo.AllISRAcks()
 	}
 
-	producer, err := kafka.NewProducer(kafkaConfig)
+	// Create franz-go client options
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(config.BootstrapServers),
+		kgo.RequiredAcks(acks),
+		kgo.ProducerLinger(time.Duration(config.LingerMs) * time.Millisecond),
+		kgo.ProducerBatchMaxBytes(int32(config.BatchSize)),
+		kgo.RecordRetries(3),
+	}
+
+	// Enable idempotence if requested
+	if config.EnableIdempotence {
+		opts = append(opts, kgo.RequiredAcks(kgo.AllISRAcks()))
+	}
+
+	// Set compression
+	switch config.CompressionType {
+	case "snappy":
+		opts = append(opts, kgo.ProducerBatchCompression(kgo.SnappyCompression()))
+	case "gzip":
+		opts = append(opts, kgo.ProducerBatchCompression(kgo.GzipCompression()))
+	case "lz4":
+		opts = append(opts, kgo.ProducerBatchCompression(kgo.Lz4Compression()))
+	case "zstd":
+		opts = append(opts, kgo.ProducerBatchCompression(kgo.ZstdCompression()))
+	}
+
+	client, err := kgo.NewClient(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Kafka producer: %w", err)
+		return nil, fmt.Errorf("failed to create Kafka client: %w", err)
 	}
 
 	schemaClient := srclient.CreateSchemaRegistryClient(config.SchemaRegistryURL)
 
 	return &AvroProducer{
-		producer:     producer,
+		client:       client,
 		schemaClient: schemaClient,
 		schemaCache:  make(map[string]*srclient.Schema),
 		avroCache:    make(map[int]avro.Schema),
+		useJSON:      config.UseJSON,
 	}, nil
 }
 
@@ -104,23 +133,34 @@ func (p *AvroProducer) Produce(ctx context.Context, topic string, key string, va
 
 // ProduceWithHeaders sends a message with custom headers and Avro serialization.
 func (p *AvroProducer) ProduceWithHeaders(ctx context.Context, topic string, key string, value interface{}, headers map[string]string) error {
-	// Get or fetch schema for the topic
-	subject := topic + "-value"
-	schema, err := p.getSchema(subject)
-	if err != nil {
-		return fmt.Errorf("failed to get schema for %s: %w", subject, err)
-	}
+	var valueBytes []byte
+	var err error
 
-	// Get Avro schema
-	avroSchema, err := p.getAvroSchema(schema)
-	if err != nil {
-		return fmt.Errorf("failed to parse Avro schema: %w", err)
-	}
+	if p.useJSON {
+		// Use JSON serialization (for testing/debugging)
+		valueBytes, err = json.Marshal(value)
+		if err != nil {
+			return fmt.Errorf("failed to serialize value to JSON: %w", err)
+		}
+	} else {
+		// Get or fetch schema for the topic
+		subject := topic + "-value"
+		schema, err := p.getSchema(subject)
+		if err != nil {
+			return fmt.Errorf("failed to get schema for %s: %w", subject, err)
+		}
 
-	// Serialize value with Avro
-	valueBytes, err := p.serializeAvro(schema.ID(), avroSchema, value)
-	if err != nil {
-		return fmt.Errorf("failed to serialize value: %w", err)
+		// Get Avro schema
+		avroSchema, err := p.getAvroSchema(schema)
+		if err != nil {
+			return fmt.Errorf("failed to parse Avro schema: %w", err)
+		}
+
+		// Serialize value with Avro
+		valueBytes, err = p.serializeAvro(schema.ID(), avroSchema, value)
+		if err != nil {
+			return fmt.Errorf("failed to serialize value: %w", err)
+		}
 	}
 
 	return p.ProduceRaw(ctx, topic, []byte(key), valueBytes, headers)
@@ -128,54 +168,46 @@ func (p *AvroProducer) ProduceWithHeaders(ctx context.Context, topic string, key
 
 // ProduceRaw sends a raw byte message without Avro serialization.
 func (p *AvroProducer) ProduceRaw(ctx context.Context, topic string, key []byte, value []byte, headers map[string]string) error {
-	// Build Kafka headers
-	var kafkaHeaders []kafka.Header
+	// Build record headers
+	var recordHeaders []kgo.RecordHeader
 	for k, v := range headers {
-		kafkaHeaders = append(kafkaHeaders, kafka.Header{
+		recordHeaders = append(recordHeaders, kgo.RecordHeader{
 			Key:   k,
 			Value: []byte(v),
 		})
 	}
 
-	// Create delivery channel
-	deliveryChan := make(chan kafka.Event, 1)
-
-	// Produce message
-	err := p.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topic,
-			Partition: kafka.PartitionAny,
-		},
+	// Create record
+	record := &kgo.Record{
+		Topic:   topic,
 		Key:     key,
 		Value:   value,
-		Headers: kafkaHeaders,
-	}, deliveryChan)
-	if err != nil {
+		Headers: recordHeaders,
+	}
+
+	// Produce synchronously
+	results := p.client.ProduceSync(ctx, record)
+	if err := results.FirstErr(); err != nil {
 		return fmt.Errorf("failed to produce message: %w", err)
 	}
 
-	// Wait for delivery with context
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case e := <-deliveryChan:
-		m := e.(*kafka.Message)
-		if m.TopicPartition.Error != nil {
-			return fmt.Errorf("delivery failed: %w", m.TopicPartition.Error)
-		}
-		return nil
-	}
+	return nil
 }
 
 // Flush waits for all messages to be delivered.
 func (p *AvroProducer) Flush(timeoutMs int) int {
-	return p.producer.Flush(timeoutMs)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	defer cancel()
+
+	if err := p.client.Flush(ctx); err != nil {
+		return 1 // Return 1 to indicate unflushed messages
+	}
+	return 0
 }
 
 // Close closes the producer and releases resources.
 func (p *AvroProducer) Close() {
-	p.producer.Flush(10000)
-	p.producer.Close()
+	p.client.Close()
 }
 
 // getSchema retrieves a schema from cache or Schema Registry.
@@ -250,69 +282,22 @@ func (p *AvroProducer) serializeAvro(schemaID int, schema avro.Schema, value int
 	return result, nil
 }
 
-// Events returns the producer's events channel for monitoring.
-func (p *AvroProducer) Events() chan kafka.Event {
-	return p.producer.Events()
-}
-
-// ProduceAsync produces a message asynchronously without waiting for delivery.
-func (p *AvroProducer) ProduceAsync(topic string, key string, value interface{}, headers map[string]string) error {
-	// Get or fetch schema for the topic
-	subject := topic + "-value"
-	schema, err := p.getSchema(subject)
-	if err != nil {
-		return fmt.Errorf("failed to get schema for %s: %w", subject, err)
-	}
-
-	// Get Avro schema
-	avroSchema, err := p.getAvroSchema(schema)
-	if err != nil {
-		return fmt.Errorf("failed to parse Avro schema: %w", err)
-	}
-
-	// Serialize value with Avro
-	valueBytes, err := p.serializeAvro(schema.ID(), avroSchema, value)
-	if err != nil {
-		return fmt.Errorf("failed to serialize value: %w", err)
-	}
-
-	// Build Kafka headers
-	var kafkaHeaders []kafka.Header
-	for k, v := range headers {
-		kafkaHeaders = append(kafkaHeaders, kafka.Header{
-			Key:   k,
-			Value: []byte(v),
-		})
-	}
-
-	// Produce without waiting
-	return p.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topic,
-			Partition: kafka.PartitionAny,
-		},
-		Key:     []byte(key),
-		Value:   valueBytes,
-		Headers: kafkaHeaders,
-	}, nil)
-}
-
 // SimpleProducer is a producer without Avro serialization.
 type SimpleProducer struct {
-	producer *kafka.Producer
+	client *kgo.Client
 }
 
 // NewSimpleProducer creates a simple Kafka producer without Schema Registry.
 func NewSimpleProducer(bootstrapServers string) (*SimpleProducer, error) {
-	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"acks":              "all",
-	})
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(bootstrapServers),
+		kgo.RequiredAcks(kgo.AllISRAcks()),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SimpleProducer{producer: producer}, nil
+	return &SimpleProducer{client: client}, nil
 }
 
 // Produce sends a message synchronously.
@@ -343,43 +328,34 @@ func (p *SimpleProducer) ProduceWithHeaders(ctx context.Context, topic string, k
 
 // ProduceRaw sends raw bytes.
 func (p *SimpleProducer) ProduceRaw(ctx context.Context, topic string, key []byte, value []byte, headers map[string]string) error {
-	var kafkaHeaders []kafka.Header
+	var recordHeaders []kgo.RecordHeader
 	for k, v := range headers {
-		kafkaHeaders = append(kafkaHeaders, kafka.Header{Key: k, Value: []byte(v)})
+		recordHeaders = append(recordHeaders, kgo.RecordHeader{Key: k, Value: []byte(v)})
 	}
 
-	deliveryChan := make(chan kafka.Event, 1)
-	err := p.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Key:            key,
-		Value:          value,
-		Headers:        kafkaHeaders,
-	}, deliveryChan)
-	if err != nil {
-		return err
+	record := &kgo.Record{
+		Topic:   topic,
+		Key:     key,
+		Value:   value,
+		Headers: recordHeaders,
 	}
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case e := <-deliveryChan:
-		m := e.(*kafka.Message)
-		if m.TopicPartition.Error != nil {
-			return m.TopicPartition.Error
-		}
-		return nil
-	case <-time.After(30 * time.Second):
-		return fmt.Errorf("delivery timeout")
-	}
+	results := p.client.ProduceSync(ctx, record)
+	return results.FirstErr()
 }
 
 // Flush flushes pending messages.
 func (p *SimpleProducer) Flush(timeoutMs int) int {
-	return p.producer.Flush(timeoutMs)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	defer cancel()
+
+	if err := p.client.Flush(ctx); err != nil {
+		return 1
+	}
+	return 0
 }
 
 // Close closes the producer.
 func (p *SimpleProducer) Close() {
-	p.producer.Flush(10000)
-	p.producer.Close()
+	p.client.Close()
 }

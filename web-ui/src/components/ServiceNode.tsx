@@ -1,12 +1,16 @@
 import { memo } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { Handle, Position } from '@xyflow/react'
 import { Radio, Database, Landmark, Users, Globe, Activity } from 'lucide-react'
 
-interface ServiceNodeData {
+export interface ServiceNodeData {
   label: string
   icon: string
   status: 'healthy' | 'active' | 'pending' | 'error'
   metrics?: Record<string, number | string>
+}
+
+interface ServiceNodeProps {
+  data: ServiceNodeData
 }
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -41,7 +45,7 @@ const statusColors: Record<string, { bg: string; border: string; dot: string }> 
   },
 }
 
-function ServiceNode({ data }: NodeProps<ServiceNodeData>) {
+function ServiceNode({ data }: ServiceNodeProps) {
   const Icon = iconMap[data.icon] || Activity
   const colors = statusColors[data.status] || statusColors.pending
 

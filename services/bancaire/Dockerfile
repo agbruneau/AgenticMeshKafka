@@ -7,8 +7,8 @@ RUN apk add --no-cache gcc musl-dev git
 # Set working directory
 WORKDIR /app
 
-# Copy go workspace file
-COPY go.work ./
+# Disable go.work for Docker builds
+ENV GOWORK=off
 
 # Copy module files first for better caching
 COPY pkg/config/go.mod pkg/config/go.sum ./pkg/config/
@@ -16,7 +16,7 @@ COPY pkg/kafka/go.mod pkg/kafka/go.sum ./pkg/kafka/
 COPY pkg/database/go.mod pkg/database/go.sum ./pkg/database/
 COPY pkg/events/go.mod pkg/events/go.sum ./pkg/events/
 COPY pkg/observability/go.mod pkg/observability/go.sum ./pkg/observability/
-COPY services/bancaire/go.mod ./services/bancaire/
+COPY services/bancaire/go.mod services/bancaire/go.sum ./services/bancaire/
 
 # Download dependencies
 RUN cd services/bancaire && go mod download
@@ -27,7 +27,7 @@ COPY services/bancaire/ ./services/bancaire/
 
 # Build the binary
 WORKDIR /app/services/bancaire
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bancaire ./cmd/bancaire
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s -extldflags '-static'" -tags musl -o /bancaire ./cmd/bancaire
 
 # Runtime stage
 FROM alpine:3.19

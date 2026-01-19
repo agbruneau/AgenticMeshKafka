@@ -21,7 +21,7 @@ services:
       - "9093:9093"      # Controller
     environment:
       # KRaft Configuration
-      KAFKA_KRAFT_CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
 
@@ -179,17 +179,21 @@ services:
   # ==========================================================================
   simulator:
     build:
-      context: ../services/simulator
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/simulator/Dockerfile
     container_name: simulator
     hostname: simulator
     ports:
       - "8080:8080"
       - "9091:9090"
+    mem_limit: 1g
+    memswap_limit: 1g
     environment:
       CONFIG_FILE: /app/config/docker.yaml
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    volumes:
+      - ../config:/app/config:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -202,13 +206,13 @@ services:
 
   bancaire:
     build:
-      context: ../services/bancaire
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/bancaire/Dockerfile
     container_name: bancaire
     hostname: bancaire
     ports:
       - "8082:8080"
-      - "9092:9090"
+      - "9095:9090"
     environment:
       CONFIG_FILE: /app/config/docker.yaml
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -218,6 +222,8 @@ services:
       POSTGRES_DB: edalab
       POSTGRES_USER: edalab
       POSTGRES_PASSWORD: edalab_password
+    volumes:
+      - ../config:/app/config:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -232,19 +238,21 @@ services:
 
   gateway:
     build:
-      context: ../services/gateway
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/gateway/Dockerfile
     container_name: gateway
     hostname: gateway
     ports:
       - "8083:8080"
-      - "9093:9090"
+      - "9094:9090"
     environment:
       CONFIG_FILE: /app/config/docker.yaml
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SIMULATOR_URL: http://simulator:8080
       BANCAIRE_URL: http://bancaire:8080
+    volumes:
+      - ../config:/app/config:ro
     depends_on:
       kafka:
         condition: service_healthy

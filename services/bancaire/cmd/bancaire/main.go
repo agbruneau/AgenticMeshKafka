@@ -44,17 +44,23 @@ func main() {
 	)
 
 	// Initialize tracing (if enabled)
-	if cfg.Tracing.Enabled {
-		tp, err := observability.InitTracer(serviceName, cfg.Tracing.JaegerEndpoint, cfg.Tracing.SampleRate)
-		if err != nil {
-			logger.Warn("failed to initialize tracer", slog.Any("error", err))
-		} else {
-			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				tp.Shutdown(ctx)
-			}()
-		}
+	tracerCfg := observability.TracerConfig{
+		ServiceName:    serviceName,
+		ServiceVersion: "1.0.0",
+		Environment:    "development",
+		Endpoint:       cfg.Tracing.JaegerEndpoint,
+		SampleRate:     cfg.Tracing.SampleRate,
+		Enabled:        cfg.Tracing.Enabled,
+	}
+	tp, err := observability.InitTracer(context.Background(), tracerCfg)
+	if err != nil {
+		logger.Warn("failed to initialize tracer", slog.Any("error", err))
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			tp.Shutdown(shutdownCtx)
+		}()
 	}
 
 	// Initialize metrics

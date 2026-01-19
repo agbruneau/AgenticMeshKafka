@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Database, Clock, AlertTriangle, TrendingUp, Zap } from 'lucide-react'
+import { Activity, Database, AlertTriangle, TrendingUp, Zap } from 'lucide-react'
 import { healthApi } from '../lib/api'
 import { useSimulationStore } from '../store/simulationStore'
 

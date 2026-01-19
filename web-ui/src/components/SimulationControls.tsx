@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Play, Square, Send, AlertCircle, CheckCircle } from 'lucide-react'
 import { simulationApi, type StartSimulationRequest } from '../lib/api'
@@ -12,22 +12,26 @@ export default function SimulationControls() {
   const [eventCount, setEventCount] = useState(1)
 
   // Fetch status periodically when running
-  useQuery({
+  const { data: statusData } = useQuery({
     queryKey: ['simulationStatus'],
     queryFn: simulationApi.status,
     refetchInterval: status === 'running' ? 1000 : false,
     enabled: status === 'running',
-    onSuccess: (data) => {
+  })
+
+  // Handle status data updates
+  useEffect(() => {
+    if (statusData) {
       updateMetrics({
-        eventsProduced: data.events_produced,
-        eventsFailed: data.events_failed,
-        rateActual: data.rate_actual,
+        eventsProduced: statusData.events_produced,
+        eventsFailed: statusData.events_failed,
+        rateActual: statusData.rate_actual,
       })
-      if (data.status === 'stopped') {
+      if (statusData.status === 'stopped') {
         setStatus('stopped')
       }
-    },
-  })
+    }
+  }, [statusData, updateMetrics, setStatus])
 
   // Start mutation
   const startMutation = useMutation({

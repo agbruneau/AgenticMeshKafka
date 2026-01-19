@@ -8,16 +8,15 @@ import {
   useEdgesState,
   type Node,
   type Edge,
-  type NodeTypes,
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useSimulationStore } from '../store/simulationStore'
 import ServiceNode from './ServiceNode'
 
-const nodeTypes: NodeTypes = {
+const nodeTypes = {
   service: ServiceNode,
-}
+} as const
 
 const initialNodes: Node[] = [
   {
@@ -130,8 +129,8 @@ const initialEdges: Edge[] = [
 
 export default function FlowVisualization() {
   const { status, eventsProduced, rateActual } = useSimulationStore()
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [nodes, , onNodesChange] = useNodesState(initialNodes)
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges)
 
   // Update nodes and edges based on simulation status
   const animatedEdges = useMemo(() => {

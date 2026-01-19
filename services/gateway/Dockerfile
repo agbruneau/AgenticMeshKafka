@@ -7,8 +7,8 @@ RUN apk add --no-cache gcc musl-dev git
 # Set working directory
 WORKDIR /app
 
-# Copy go workspace file
-COPY go.work ./
+# Disable go.work for Docker builds
+ENV GOWORK=off
 
 # Copy module files first for better caching
 COPY pkg/config/go.mod pkg/config/go.sum ./pkg/config/
@@ -16,7 +16,7 @@ COPY pkg/kafka/go.mod pkg/kafka/go.sum ./pkg/kafka/
 COPY pkg/database/go.mod pkg/database/go.sum ./pkg/database/
 COPY pkg/events/go.mod pkg/events/go.sum ./pkg/events/
 COPY pkg/observability/go.mod pkg/observability/go.sum ./pkg/observability/
-COPY services/gateway/go.mod ./services/gateway/
+COPY services/gateway/go.mod services/gateway/go.sum ./services/gateway/
 
 # Download dependencies
 RUN cd services/gateway && go mod download
@@ -27,7 +27,7 @@ COPY services/gateway/ ./services/gateway/
 
 # Build the binary
 WORKDIR /app/services/gateway
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /gateway ./cmd/gateway
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s -extldflags '-static'" -tags musl -o /gateway ./cmd/gateway
 
 # Runtime stage
 FROM alpine:3.19

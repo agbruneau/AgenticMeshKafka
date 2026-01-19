@@ -116,8 +116,8 @@ func (m *Manager) Start(ctx context.Context, config Config) error {
 		config.EventTypes = []string{"CompteOuvert"}
 	}
 
-	// Create simulation context
-	simCtx, cancel := context.WithCancel(ctx)
+	// Create simulation context with background (not tied to HTTP request)
+	simCtx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
 
 	// Initialize status
