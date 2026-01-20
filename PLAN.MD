@@ -2830,7 +2830,7 @@ consumer.Consume(ctx, handler.Route)
 | Phase | Nom | Sous-étapes | Code | Tests | Statut |
 |-------|-----|-------------|------|-------|--------|
 | 0 | Infrastructure | 6 | ✓ | ✓ | Complété |
-| 1 | Fondations Go | 9 | ❌ | ❌ | Non commencé |
+| 1 | Fondations Go | 9 | ✓ | ✓ | Complété |
 | 2 | Schémas Avro | 3 | ❌ | ❌ | Non commencé |
 | 3 | Simulator | 6 | ❌ | ❌ | Non commencé |
 | 4 | Bancaire | 6 | ❌ | ❌ | Non commencé |
@@ -2838,7 +2838,7 @@ consumer.Consume(ctx, handler.Route)
 | 6 | Observabilité | 5 | ❌ | ❌ | Non commencé |
 | 7 | Web UI | 7 | ❌ | ❌ | Non commencé |
 | 8 | Intégration | 6 | ❌ | ❌ | Non commencé |
-| **TOTAL** | **MVP** | **51** | **0%** | **0%** | **Non commencé** |
+| **TOTAL** | **MVP** | **51** | **12%** | **12%** | **En cours** |
 
 ### Légende
 - ✓ = Complété et validé

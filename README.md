@@ -58,7 +58,6 @@ Simulator (produces) --> Kafka --> Bancaire (consumes/persists)
 |----------|---------|
 | [PRD.MD](PRD.MD) | Product Requirements - EDA patterns specs |
 | [PLAN.MD](PLAN.MD) | Implementation plan - Technical phases |
-| [AGENT.MD](AGENT.MD) | Agent instructions for implementation |
 
 ## Project Structure
 

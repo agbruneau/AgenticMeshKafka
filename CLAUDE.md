@@ -13,7 +13,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **CLAUDE.md**  | Quick reference for Claude Code                            | Always loaded automatically          |
 | **PRD.MD**     | Product Definition - Business requirements & EDA patterns  | Understanding WHAT to build          |
 | **PLAN.MD**    | Implementation plan - Technical phases with prompts        | Understanding HOW to build (phases)  |
-| **AGENT.MD**   | Agent protocols - TDD workflow & validation criteria       | Understanding the PROCESS            |
 
 ## Terminology
 
@@ -134,9 +133,8 @@ This project enforces **TDD Protocol**:
 |------------|------------------------------------------------------|
 | `PRD.MD`   | Product Definition - Itérations (EDA patterns) specs |
 | `PLAN.MD`  | Implementation plan - Phases techniques with details |
-| `AGENT.MD` | Agent instructions for implementing iterations       |
 
-To implement a new iteration: `Implémente l'Itération [N] du projet EDA-Lab selon le PRD.MD et AGENT.MD`
+To implement a new iteration: `Implémente l'Itération [N] du projet EDA-Lab selon le PRD.MD et PLAN.MD`
 
 ## Environment Variables
 
@@ -184,7 +182,11 @@ LOG_LEVEL=info
 
 ## Current Progress
 
-**MVP (Iteration 1)**: Phase 0 - Completed ✓
+**MVP (Iteration 1)**: Phase 1 - Completed ✓
+
+Completed phases:
+- Phase 0: Infrastructure ✓
+- Phase 1: Fondations Go ✓ (pkg/config, pkg/kafka, pkg/database, pkg/observability)
 
 > Use `/status` skill to check current progress
 > Use `/phase N` skill to implement phase N
