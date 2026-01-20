@@ -5,6 +5,7 @@
 Ce document définit le plan d'implémentation détaillé du projet **EDA-Lab** selon une approche **Test Driven Development (TDD)** avec progression incrémentale.
 
 **Principes directeurs :**
+
 - Chaque étape produit du code fonctionnel et testé
 - Tests avec données réelles et vrais appels API (testcontainers-go)
 - Aucun code orphelin - intégration continue
@@ -14,37 +15,39 @@ Ce document définit le plan d'implémentation détaillé du projet **EDA-Lab** 
 
 ## Terminologie et correspondance
 
-> **Relation avec PDR.MD:**
+> **Relation avec PRD.MD:**
+>
 > - Ce document détaille les **Phases techniques (0-8)** pour construire le MVP
-> - Le MVP correspond à l'**Itération 1 (Pub/Sub)** du PDR.MD
-> - Les itérations 2-8 du PDR.MD (Event Sourcing, CQRS, etc.) seront documentées dans des plans séparés
+> - Le MVP correspond à l'**Itération 1 (Pub/Sub)** du PRD.MD
+> - Les itérations 2-8 du PRD.MD (Event Sourcing, CQRS, etc.) seront documentées dans des plans séparés
 
 ```
-PDR.MD: Itération 1 (MVP Pub/Sub) = Ce document: Phases 0-8
-PDR.MD: Itération 2+ = Plans futurs (PLAN-PHASE2.MD, etc.)
+PRD.MD: Itération 1 (MVP Pub/Sub) = Ce document: Phases 0-8
+PRD.MD: Itération 2+ = Plans futurs (PLAN-PHASE2.MD, etc.)
 ```
 
 ---
 
 ## Structure des phases techniques
 
-| Phase | Nom | Objectif |
-|-------|-----|----------|
-| 0 | Infrastructure | Docker Compose, Kafka, PostgreSQL, Schema Registry |
-| 1 | Fondations Go | Structure monorepo, bibliothèques partagées |
-| 2 | Schémas Avro | Définition et enregistrement des schémas |
-| 3 | Producteur | Service Simulator - génération d'événements |
-| 4 | Consommateur | Service Bancaire - consommation et traitement |
-| 5 | Gateway | API REST + WebSocket |
-| 6 | Observabilité | Prometheus, Grafana, métriques |
-| 7 | Web UI | Interface React + React Flow |
-| 8 | Intégration | Tests E2E, scénarios complets |
+| Phase | Nom            | Objectif                                           |
+| ----- | -------------- | -------------------------------------------------- |
+| 0     | Infrastructure | Docker Compose, Kafka, PostgreSQL, Schema Registry |
+| 1     | Fondations Go  | Structure monorepo, bibliothèques partagées        |
+| 2     | Schémas Avro   | Définition et enregistrement des schémas           |
+| 3     | Producteur     | Service Simulator - génération d'événements        |
+| 4     | Consommateur   | Service Bancaire - consommation et traitement      |
+| 5     | Gateway        | API REST + WebSocket                               |
+| 6     | Observabilité  | Prometheus, Grafana, métriques                     |
+| 7     | Web UI         | Interface React + React Flow                       |
+| 8     | Intégration    | Tests E2E, scénarios complets                      |
 
 ---
 
 # PHASE 0 : Infrastructure
 
 ## Objectif
+
 Mettre en place l'infrastructure Docker Compose avec Kafka (KRaft), Schema Registry et PostgreSQL fonctionnels et testables.
 
 ---
@@ -53,9 +56,9 @@ Mettre en place l'infrastructure Docker Compose avec Kafka (KRaft), Schema Regis
 
 #### Sous-étape 0.1.1 : Création de la structure de répertoires
 
-**Contexte :** Créer la structure de base du monorepo selon le PDR.MD.
+**Contexte :** Créer la structure de base du monorepo selon le PRD.MD.
 
-```text
+````text
 PROMPT CLAUDE CODE - Étape 0.1.1
 
 Crée la structure de répertoires suivante pour le projet EDA-Lab :
@@ -101,8 +104,9 @@ use (
     ./services/gateway
     ./tests/integration
 )
-```
-```
+````
+
+````
 
 ---
 
@@ -128,7 +132,7 @@ Ajoute un healthcheck pour vérifier que Kafka est prêt.
 Crée également un script scripts/wait-for-kafka.sh qui attend que Kafka soit disponible avant de continuer.
 
 Teste la configuration en démarrant le conteneur et en vérifiant qu'il est healthy.
-```
+````
 
 ---
 
@@ -289,93 +293,90 @@ Les tests doivent passer avec l'infrastructure démarrée via make infra-up.
 # PHASE 1 : Fondations Go
 
 ## Objectif
+
 Créer les bibliothèques partagées Go pour Kafka, Avro et la configuration.
 
 ---
 
 ### Étape 1.1 : Module partagé - Configuration
 
-#### Sous-étape 1.1.1 : Structure du package pkg/config
+#### Sous-étape 1.1.1 : Structure du package pkg/config (TDD)
 
-**Contexte :** Créer un package de configuration centralisé.
+**1. Définition du Test (RED)**
 
 ```text
-PROMPT CLAUDE CODE - Étape 1.1.1
+PROMPT CLAUDE CODE - Étape 1.1.1 (Test)
 
-Crée un module Go partagé pour la configuration.
-
+Crée SEULEMENT le fichier de test pour la configuration.
 Fichier : pkg/config/go.mod
 - Module : github.com/edalab/pkg/config
 
-Fichier : pkg/config/config.go
-Implémente une structure de configuration avec :
-
-type Config struct {
-    Kafka    KafkaConfig
-    Schema   SchemaConfig
-    Postgres PostgresConfig
-    Service  ServiceConfig
-}
-
-type KafkaConfig struct {
-    BootstrapServers string
-    GroupID          string
-    AutoOffsetReset  string
-}
-
-type SchemaConfig struct {
-    URL string
-}
-
-type PostgresConfig struct {
-    Host     string
-    Port     int
-    Database string
-    User     string
-    Password string
-}
-
-type ServiceConfig struct {
-    Name string
-    Port int
-}
-
-Fonctions à implémenter :
-- LoadFromEnv() (*Config, error) : Charge depuis variables d'environnement
-- LoadFromFile(path string) (*Config, error) : Charge depuis fichier YAML
-- Validate() error : Valide la configuration
-
 Fichier : pkg/config/config_test.go
-Tests TDD :
-1. TestLoadFromEnv_Success
-2. TestLoadFromEnv_MissingRequired
-3. TestLoadFromFile_Success
-4. TestLoadFromFile_FileNotFound
-5. TestValidate_ValidConfig
-6. TestValidate_InvalidConfig
+Défini les tests suivants qui DOIVENT échouer (fonctionnalités non implémentées) :
 
-Utilise testify pour les assertions. Tous les tests doivent passer.
+1. TestLoadFromEnv_Success : Définit des variables d'environnement (KAFKA_BOOTSTRAP_SERVERS, etc.) et vérifie que LoadFromEnv() retourne la config correcte.
+2. TestLoadFromEnv_MissingRequired : Vérifie que LoadFromEnv() retourne une erreur si une variable obligatoire manque.
+3. TestValidate_ValidConfig : Construit une struct Config valide et vérifie que Validate() ne retourne pas d'erreur.
+4. TestValidate_InvalidConfig : Construit une struct Config invalide (ex: port 0) et vérifie que Validate() retourne une erreur.
+
+L'implémentation `config.go` ne doit contenir que les structs et des fonctions vides (panic ou return nil) pour permettre la compilation du test.
+Vérifie que `go test ./pkg/config/...` échoue (mais compile).
+```
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.1.1 (Impl)
+
+Maintenant, implémente la logique de configuration pour faire passer les tests.
+
+Fichier : pkg/config/config.go
+Implémente :
+- Les structs (KafkaConfig, SchemaConfig, PostgresConfig, ServiceConfig)
+- LoadFromEnv() : Utilise `os.Getenv`
+- Validate() : Vérifie les champs obligatoires
+
+Vérifie que `go test ./pkg/config/...` passe avec succès.
 ```
 
 ---
 
-#### Sous-étape 1.1.2 : Fichiers de configuration par environnement
+#### Sous-étape 1.1.2 : Fichiers de configuration par environnement (TDD)
 
-**Contexte :** Créer les fichiers de configuration pour le développement local.
+**1. Définition du Test (RED)**
 
 ```text
-PROMPT CLAUDE CODE - Étape 1.1.2
+PROMPT CLAUDE CODE - Étape 1.1.2 (Test)
 
-Crée les fichiers de configuration YAML pour l'environnement de développement.
+Crée un test d'intégration pour valider la présence des configurations.
+
+Fichier : pkg/config/integration_test.go
+(Ajouter build tag //go:build integration)
+
+Tests :
+1. TestLoadLocalConfig : Tente de charger "config/local.yaml" et vérifie que :
+   - Kafka.BootstrapServers == "localhost:9092"
+   - Schema.URL == "http://localhost:8081"
+   - Postgres.Host == "localhost"
+
+2. TestLoadDockerConfig : Tente de charger "config/docker.yaml" et vérifie les valeurs Docker.
+
+Vérifie que ce test échoue (fichiers absents).
+```
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.1.2 (Impl)
+
+Crée maintenant les fichiers de configuration pour faire passer les tests.
 
 Fichier : config/local.yaml
 kafka:
   bootstrap_servers: "localhost:9092"
   auto_offset_reset: "earliest"
-
 schema:
   url: "http://localhost:8081"
-
 postgres:
   host: "localhost"
   port: 5432
@@ -383,14 +384,12 @@ postgres:
   user: "edalab"
   password: "edalab_password"
 
-Fichier : config/docker.yaml (pour exécution dans Docker)
+Fichier : config/docker.yaml
 kafka:
   bootstrap_servers: "kafka:29092"
   auto_offset_reset: "earliest"
-
 schema:
   url: "http://schema-registry:8081"
-
 postgres:
   host: "postgres"
   port: 5432
@@ -398,117 +397,96 @@ postgres:
   user: "edalab"
   password: "edalab_password"
 
-Modifie pkg/config/config.go pour supporter le chargement de ces fichiers YAML.
-Ajoute la dépendance gopkg.in/yaml.v3.
-
-Crée un test d'intégration qui charge config/local.yaml et vérifie les valeurs.
+Assure-toi que `config.go` charge bien le YAML via `gopkg.in/yaml.v3` (ajoute la dépendance).
+Lance `go test ./pkg/config/... -tags=integration` pour valider.
 ```
 
 ---
 
 ### Étape 1.2 : Module partagé - Client Kafka
 
-#### Sous-étape 1.2.1 : Producer Kafka avec Avro
+#### Sous-étape 1.2.1 : Producer Kafka avec Avro (TDD)
 
-**Contexte :** Créer un client producteur Kafka réutilisable avec sérialisation Avro.
+**1. Définition du Test (RED)**
 
 ```text
-PROMPT CLAUDE CODE - Étape 1.2.1
+PROMPT CLAUDE CODE - Étape 1.2.1 (Test)
 
-Crée un module Go pour le client Kafka.
+Crée le module et les tests pour le Producer Kafka.
 
 Fichier : pkg/kafka/go.mod
 - Module : github.com/edalab/pkg/kafka
-- Dépendances : confluent-kafka-go, srclient (Schema Registry client)
-
-Fichier : pkg/kafka/producer.go
-Implémente un producteur Kafka avec sérialisation Avro :
-
-type Producer interface {
-    Produce(ctx context.Context, topic string, key string, value interface{}) error
-    ProduceWithHeaders(ctx context.Context, topic string, key string, value interface{}, headers map[string]string) error
-    Close() error
-}
-
-type AvroProducer struct {
-    producer     *kafka.Producer
-    schemaClient *srclient.SchemaRegistryClient
-    schemas      map[string]*srclient.Schema
-}
-
-func NewAvroProducer(config *config.KafkaConfig, schemaConfig *config.SchemaConfig) (*AvroProducer, error)
-
-La méthode Produce doit :
-1. Récupérer le schéma Avro depuis Schema Registry (avec cache)
-2. Sérialiser la valeur en Avro
-3. Produire le message dans Kafka
-4. Attendre la confirmation (synchrone pour simplifier)
+- Dépendances : confluent-kafka-go, srclient
 
 Fichier : pkg/kafka/producer_test.go
-Tests TDD (nécessitent infrastructure réelle via docker-compose) :
-1. TestNewAvroProducer_Success
-2. TestNewAvroProducer_InvalidConfig
-3. TestProduce_Success (avec vrai Kafka et Schema Registry)
-4. TestProduce_SchemaNotFound
-5. TestProduce_SerializationError
+Tests :
+1. TestNewAvroProducer_InvalidConfig : Checking validation.
+2. TestProduce_Interface : Vérifier que l'interface Producer existe (même si implémentation vide).
+3. TestProduce_Mock : Utiliser un mock pour vérifier que Produce appelle bien le Producer sous-jacent (si possible sans infra).
 
-Utilise un schéma de test simple enregistré préalablement.
+Pour cette étape RED, crée définir l'interface et les structs dans `producer.go` mais LAISSE l'implémentation de `Produce` vide (return nil ou panic) et `NewAvroProducer` retourner nil.
+
+Le test doit échouer ou paniquer.
+```
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.2.1 (Impl)
+
+Implémente le Producer Avro.
+
+Fichier : pkg/kafka/producer.go
+Implémente :
+- NewAvroProducer : Connexion Kafka + Schema Registry Client
+- Produce :
+  1. Récupération ID schéma (avec cache)
+  2. Sérialisation Avro
+  3. Production via confluent-kafka-go
+  4. Flush (synchrone pour le MVP)
+
+Fais passer les tests unitaires.
+(Les tests d'intégration avec infra réelle viendront à l'étape 1.2.3)
 ```
 
 ---
 
-#### Sous-étape 1.2.2 : Consumer Kafka avec Avro
+#### Sous-étape 1.2.2 : Consumer Kafka avec Avro (TDD)
 
-**Contexte :** Créer un client consommateur Kafka réutilisable.
+**1. Définition du Test (RED)**
 
 ```text
-PROMPT CLAUDE CODE - Étape 1.2.2
+PROMPT CLAUDE CODE - Étape 1.2.2 (Test)
 
-Fichier : pkg/kafka/consumer.go
-Implémente un consommateur Kafka avec désérialisation Avro :
-
-type MessageHandler func(ctx context.Context, msg *Message) error
-
-type Message struct {
-    Topic     string
-    Partition int32
-    Offset    int64
-    Key       string
-    Value     interface{}
-    Headers   map[string]string
-    Timestamp time.Time
-}
-
-type Consumer interface {
-    Subscribe(topics []string) error
-    Consume(ctx context.Context, handler MessageHandler) error
-    Close() error
-}
-
-type AvroConsumer struct {
-    consumer     *kafka.Consumer
-    schemaClient *srclient.SchemaRegistryClient
-}
-
-func NewAvroConsumer(config *config.KafkaConfig, schemaConfig *config.SchemaConfig, groupID string) (*AvroConsumer, error)
-
-La méthode Consume doit :
-1. Lire les messages en boucle
-2. Extraire le schema ID du message
-3. Désérialiser avec le schéma approprié
-4. Appeler le handler
-5. Commit l'offset si succès
-6. Gérer les erreurs et retries
+Crée les tests pour le Consumer Kafka.
 
 Fichier : pkg/kafka/consumer_test.go
-Tests TDD :
-1. TestNewAvroConsumer_Success
-2. TestSubscribe_Success
-3. TestConsume_Success (produire puis consommer)
-4. TestConsume_HandlerError
-5. TestConsume_DeserializationError
+Tests :
+1. TestNewAvroConsumer_InvalidConfig
+2. TestConsume_Interface : Vérifier la signature du Handler.
 
-Les tests doivent produire des messages réels puis les consommer.
+Crée les interfaces et structs dans `consumer.go` mais SANS implémentation logique.
+Vérifie que les tests échouent.
+```
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.2.2 (Impl)
+
+Implémente le Consumer Avro.
+
+Fichier : pkg/kafka/consumer.go
+Implémente :
+- Subscribe (topics)
+- Consume (loop) :
+  - Poll messages
+  - Extract Schema ID (Wire format: Magic byte + 4 bytes ID)
+  - Deserialize
+  - Call Handler
+  - Commit offset
+
+Fais passer les tests de structure.
 ```
 
 ---
@@ -516,6 +494,11 @@ Les tests doivent produire des messages réels puis les consommer.
 #### Sous-étape 1.2.3 : Tests d'intégration Producer-Consumer
 
 **Contexte :** Valider le flux complet production-consommation.
+
+````text
+#### Sous-étape 1.2.3 : Tests d'intégration Producer-Consumer (TDD - Verification)
+
+**1. Écriture du Test (RED/GREEN)**
 
 ```text
 PROMPT CLAUDE CODE - Étape 1.2.3
@@ -533,24 +516,12 @@ Crée un test d'intégration complet qui :
    - Vérifie que tous les messages sont reçus correctement
    - Vérifie les headers, timestamps, etc.
 
-2. TestMultipleConsumersInGroup :
-   - Crée un topic avec 3 partitions
-   - Crée 2 consommateurs dans le même groupe
-   - Produit 100 messages
-   - Vérifie que les messages sont distribués entre les consommateurs
-   - Vérifie qu'aucun message n'est perdu ou dupliqué
+ Ces tests utilisent l'infrastructure Docker Compose réelle.
+ Ajoute un build tag //go:build integration pour ces tests.
 
-3. TestConsumerRebalance :
-   - Démarre un consommateur
-   - Produit des messages
-   - Ajoute un deuxième consommateur
-   - Vérifie le rebalance
-   - Arrête le premier consommateur
-   - Vérifie que le second reprend toutes les partitions
-
-Ces tests utilisent l'infrastructure Docker Compose réelle.
-Ajoute un build tag //go:build integration pour ces tests.
-```
+ Lance les tests : `go test ./pkg/kafka/... -tags=integration`
+ Si ça échoue, DEBUG et CORRIGE le code existant (Refactor).
+````
 
 ---
 
@@ -560,44 +531,51 @@ Ajoute un build tag //go:build integration pour ces tests.
 
 **Contexte :** Créer une abstraction pour l'accès à PostgreSQL.
 
-```text
-PROMPT CLAUDE CODE - Étape 1.3.1
+````text
+#### Sous-étape 1.3.1 : Repository pattern avec pgx (TDD)
 
-Crée un module Go pour l'accès PostgreSQL.
+**1. Définition du Test (RED)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.3.1 (Test)
+
+Crée le module et les tests pour PostgreSQL.
 
 Fichier : pkg/database/go.mod
 - Module : github.com/edalab/pkg/database
 - Dépendances : pgx/v5, pgxpool
 
+Fichier : pkg/database/pool_test.go
+Tests :
+1. TestNewDBPool_InvalidConfig : Vérifie la validation.
+2. TestHealthCheck_Fail : Vérifie le comportement sans DB (mock ou mauvaise config).
+
 Fichier : pkg/database/pool.go
-type DBPool struct {
-    pool *pgxpool.Pool
-}
+Défini les structs et interfaces vides.
 
-func NewDBPool(config *config.PostgresConfig) (*DBPool, error)
-func (p *DBPool) Close()
-func (p *DBPool) Pool() *pgxpool.Pool
-func (p *DBPool) HealthCheck(ctx context.Context) error
+Vérifie que les tests échouent.
+````
 
-Fichier : pkg/database/transaction.go
-type TxFunc func(ctx context.Context, tx pgx.Tx) error
+**2. Implémentation (GREEN)**
 
-func (p *DBPool) WithTransaction(ctx context.Context, fn TxFunc) error
-- Démarre une transaction
-- Exécute fn
-- Commit si succès, rollback si erreur
-- Gère les panics
+```text
+PROMPT CLAUDE CODE - Étape 1.3.1 (Impl)
+
+Implémente le client PostgreSQL.
+
+Fichier : pkg/database/pool.go
+Implémente :
+- NewDBPool : Connexion pgxpool
+- HealthCheck : Ping
+- WithTransaction : Helper pour transactions atomic
 
 Fichier : pkg/database/pool_test.go
-Tests TDD (avec PostgreSQL réel) :
+Ajoute les tests d'intégration (avec vraie DB) :
 1. TestNewDBPool_Success
-2. TestNewDBPool_InvalidConfig
-3. TestHealthCheck_Success
-4. TestWithTransaction_Commit
-5. TestWithTransaction_Rollback
-6. TestWithTransaction_Panic
+2. TestWithTransaction_Commit
+3. TestWithTransaction_Rollback
 
-Les tests doivent créer/supprimer des données réelles dans PostgreSQL.
+Lance les tests.
 ```
 
 ---
@@ -608,41 +586,45 @@ Les tests doivent créer/supprimer des données réelles dans PostgreSQL.
 
 **Contexte :** Créer les métriques communes pour tous les services.
 
+````text
+#### Sous-étape 1.4.1 : Métriques Prometheus (TDD)
+
+**1. Définition du Test (RED)**
+
 ```text
-PROMPT CLAUDE CODE - Étape 1.4.1
+PROMPT CLAUDE CODE - Étape 1.4.1 (Test)
+
+Crée le module d'observabilité et les tests de métriques.
 
 Fichier : pkg/observability/go.mod
 - Module : github.com/edalab/pkg/observability
 - Dépendances : prometheus/client_golang
 
-Fichier : pkg/observability/metrics.go
-Implémente les métriques communes :
-
-var (
-    MessagesProduced = prometheus.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "edalab_messages_produced_total",
-            Help: "Total number of messages produced",
-        },
-        []string{"service", "topic"},
-    )
-
-    MessagesConsumed = prometheus.NewCounterVec(...)
-    MessageLatency = prometheus.NewHistogramVec(...)
-    ProcessingErrors = prometheus.NewCounterVec(...)
-)
-
-func RegisterMetrics()
-func NewMetricsServer(port int) *http.Server
-
 Fichier : pkg/observability/metrics_test.go
-Tests TDD :
-1. TestRegisterMetrics_Success
-2. TestMessagesProduced_Increment
-3. TestMessageLatency_Observe
-4. TestMetricsServer_Endpoint
+Tests :
+1. TestRegisterMetrics_Success : Vérifie que l'appel ne panic pas.
+2. TestMetricsServer_Endpoint : Vérifie que le endpoint HTTP existe (return 404 pour l'instant).
 
-Vérifie que /metrics retourne les métriques au format Prometheus.
+Fichier : pkg/observability/metrics.go
+- Déclare les variables globales (MessagesProduced...) mais sans initialisation correcte ou vides.
+- Fonctions vides.
+
+Vérifie que les tests échouent.
+````
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.4.1 (Impl)
+
+Implémente les métriques Prometheus.
+
+Fichier : pkg/observability/metrics.go
+- Initialise les vecteurs Prometheus (CounterVec, HistogramVec).
+- Implémente RegisterMetrics() pour enregistrer auprès de Prometheus.
+- Implémente NewMetricsServer() qui retourne un http.Server exposant /metrics.
+
+Vérifie que les tests passent et que /metrics retourne des données.
 ```
 
 ---
@@ -651,28 +633,41 @@ Vérifie que /metrics retourne les métriques au format Prometheus.
 
 **Contexte :** Ajouter le tracing distribué.
 
+````text
+#### Sous-étape 1.4.2 : Tracing OpenTelemetry (TDD)
+
+**1. Définition du Test (RED)**
+
 ```text
-PROMPT CLAUDE CODE - Étape 1.4.2
+PROMPT CLAUDE CODE - Étape 1.4.2 (Test)
 
-Fichier : pkg/observability/tracing.go
-Implémente le tracing OpenTelemetry :
-
-func InitTracer(serviceName string, jaegerEndpoint string) (*trace.TracerProvider, error)
-func StartSpan(ctx context.Context, name string) (context.Context, trace.Span)
-func SpanFromContext(ctx context.Context) trace.Span
-func InjectTraceContext(ctx context.Context, headers map[string]string)
-func ExtractTraceContext(ctx context.Context, headers map[string]string) context.Context
-
-Dépendances : go.opentelemetry.io/otel, otel/exporters/jaeger
+Crée les tests pour le module de tracing.
 
 Fichier : pkg/observability/tracing_test.go
-Tests TDD :
-1. TestInitTracer_Success
-2. TestStartSpan_CreatesSpan
-3. TestInjectExtractTraceContext_RoundTrip
+Tests :
+1. TestStartSpan_CreatesSpan : Vérifie que l'appel génère un span non-nil.
+2. TestInjectExtractTraceContext_RoundTrip : Injecte un contexte dans un map, l'extrait, et vérifie la persistance du TraceID.
 
-Note : Pour les tests, utiliser un NoopTracerProvider pour éviter de dépendre de Jaeger.
-Ajouter des tests d'intégration séparés qui utilisent Jaeger réel.
+Fichier : pkg/observability/tracing.go
+Défini les fonctions vides ou qui panic.
+
+Vérifie que les tests échouent.
+````
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.4.2 (Impl)
+
+Implémente le tracing avec OpenTelemetry.
+
+Fichier : pkg/observability/tracing.go
+Implémente :
+- InitTracer (avec Jaeger exporter)
+- StartSpan
+- InjectTraceContext / ExtractTraceContext (Propagators)
+
+Ajoute les dépendances : go.opentelemetry.io/otel, otel/exporters/jaeger.
 ```
 
 ---
@@ -681,27 +676,41 @@ Ajouter des tests d'intégration séparés qui utilisent Jaeger réel.
 
 **Contexte :** Configurer le logging structuré JSON.
 
+````text
+#### Sous-étape 1.4.3 : Logging structuré (TDD)
+
+**1. Définition du Test (RED)**
+
 ```text
-PROMPT CLAUDE CODE - Étape 1.4.3
+PROMPT CLAUDE CODE - Étape 1.4.3 (Test)
 
-Fichier : pkg/observability/logging.go
-Implémente le logging structuré avec slog :
-
-func InitLogger(serviceName string, level string) *slog.Logger
-func WithTraceID(ctx context.Context, logger *slog.Logger) *slog.Logger
-
-Le logger doit :
-- Produire du JSON
-- Inclure le nom du service
-- Inclure le trace ID si présent dans le contexte
-- Supporter les niveaux DEBUG, INFO, WARN, ERROR
+Crée les tests pour le logging structuré.
 
 Fichier : pkg/observability/logging_test.go
-Tests TDD :
-1. TestInitLogger_DefaultLevel
-2. TestInitLogger_DebugLevel
-3. TestWithTraceID_IncludesTraceID
-4. TestLogOutput_JSONFormat
+Tests :
+1. TestLogOutput_JSONFormat : Capture la sortie standard et vérifie que c'est du JSON valide.
+2. TestWithTraceID_IncludesTraceID : Vérifie que le logger enrichi ajoute bien le champ "trace_id".
+
+Fichier : pkg/observability/logging.go
+Fonctions vides.
+
+Vérifie que les tests échouent.
+````
+
+**2. Implémentation (GREEN)**
+
+```text
+PROMPT CLAUDE CODE - Étape 1.4.3 (Impl)
+
+Implémente le logging structuré avec slog.
+
+Fichier : pkg/observability/logging.go
+Implémente :
+- InitLogger : configurer `slog.NewJSONHandler`
+- WithTraceID : extraire le TraceID du context (si présent via OTel) et l'ajouter aux champs du logger.
+
+Vérifie que les tests passent.
+Lancer `go test ./pkg/observability/...` pour tout valider.
 ```
 
 ---
@@ -709,6 +718,7 @@ Tests TDD :
 # PHASE 2 : Schémas Avro
 
 ## Objectif
+
 Définir et enregistrer les schémas Avro pour le domaine Bancaire.
 
 ---
@@ -882,6 +892,7 @@ Les tests doivent sérialiser/désérialiser avec de vraies valeurs.
 # PHASE 3 : Service Simulator
 
 ## Objectif
+
 Créer le service qui génère des événements fictifs automatiquement.
 
 ---
@@ -1170,6 +1181,7 @@ Ajoute le service Simulator au docker-compose.yml dans un profil "services".
 # PHASE 4 : Service Bancaire
 
 ## Objectif
+
 Créer le service qui consomme et traite les événements bancaires.
 
 ---
@@ -1510,6 +1522,7 @@ Ajoute une target Makefile : make test-e2e
 # PHASE 5 : Service Gateway
 
 ## Objectif
+
 Créer l'API Gateway avec WebSocket pour le temps réel.
 
 ---
@@ -1683,6 +1696,7 @@ Tests d'intégration :
 # PHASE 6 : Observabilité
 
 ## Objectif
+
 Configurer Prometheus et Grafana avec des dashboards.
 
 ---
@@ -1882,6 +1896,7 @@ Variables :
 # PHASE 7 : Web UI
 
 ## Objectif
+
 Créer l'interface React avec visualisation des flux.
 
 ---
@@ -2216,6 +2231,7 @@ Configuration pour utiliser l'infrastructure Docker Compose.
 # PHASE 8 : Intégration finale
 
 ## Objectif
+
 Valider le système complet et documenter.
 
 ---
@@ -2385,7 +2401,7 @@ Ajoute les targets Makefile :
 
 **Contexte :** Créer la documentation utilisateur.
 
-```text
+````text
 PROMPT CLAUDE CODE - Étape 8.2.1
 
 Fichier : README.md
@@ -2416,7 +2432,7 @@ make services-up
 
 # Ouvrir l'interface
 open http://localhost:3000
-```
+````
 
 ## Architecture
 
@@ -2425,20 +2441,25 @@ open http://localhost:3000
 ## Utilisation
 
 ### Démarrer une simulation
+
 [Instructions avec captures d'écran]
 
 ### Visualiser les flux
+
 [Instructions]
 
 ### Consulter les métriques
+
 [Instructions Grafana]
 
 ## Développement
 
 ### Structure du projet
+
 [Description des répertoires]
 
 ### Lancer les tests
+
 ```bash
 make test-unit
 make test-integration
@@ -2448,7 +2469,8 @@ make test-e2e
 ## License
 
 MIT
-```
+
+````
 
 ---
 
@@ -2502,7 +2524,7 @@ Créer les ADR pour :
 - 003-choix-go.md
 - 004-choix-postgresql.md
 - 005-choix-react-flow.md
-```
+````
 
 ---
 
@@ -2510,7 +2532,7 @@ Créer les ADR pour :
 
 **Contexte :** Documenter le premier patron implémenté.
 
-```text
+````text
 PROMPT CLAUDE CODE - Étape 8.2.3
 
 Fichier : docs/patterns/01-pub-sub.md
@@ -2530,7 +2552,7 @@ Le patron Pub/Sub découple les producteurs des consommateurs via un broker de m
 ```go
 // Exemple de code du Simulator
 producer.Produce(ctx, "bancaire.compte.ouvert", event)
-```
+````
 
 ### Broker (Kafka)
 
@@ -2549,29 +2571,32 @@ consumer.Consume(ctx, handler.Route)
 ## Expérimentation
 
 ### Exercice 1: Observer le découplage
+
 1. Arrêter le service Bancaire
 2. Produire des événements
 3. Redémarrer Bancaire
 4. Observer que les événements sont traités
 
 ### Exercice 2: Scaling des consommateurs
+
 1. Démarrer 2 instances de Bancaire
 2. Observer la répartition des partitions
 3. Mesurer le throughput
 
 ## Compromis architecturaux
 
-| Avantage | Inconvénient |
-|----------|--------------|
-| Découplage | Complexité ajoutée |
-| Scalabilité | Latence (async) |
-| Résilience | Ordering (par partition) |
+| Avantage    | Inconvénient             |
+| ----------- | ------------------------ |
+| Découplage  | Complexité ajoutée       |
+| Scalabilité | Latence (async)          |
+| Résilience  | Ordering (par partition) |
 
 ## Pour aller plus loin
 
 - [Kafka Documentation](...)
 - [Patron suivant: Event Sourcing](./02-event-sourcing.md)
-```
+
+````
 
 ---
 
@@ -2608,9 +2633,10 @@ make test-unit          # 3. Tests unitaires          [ ]
 make test-integration   # 4. Tests d'intégration      [ ]
 make services-up        # 5. Démarrer services        [ ]
 ./scripts/validate-mvp.sh  # 6. Validation complète   [ ]
-```
+````
 
 ### Prochaine étape à implémenter
+
 > **Phase 1 - Fondations Go** : Compléter les packages partagés (pkg/config, pkg/kafka, pkg/database, pkg/observability)
 
 ---

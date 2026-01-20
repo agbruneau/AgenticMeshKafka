@@ -31,10 +31,10 @@ func main() {
 	// Override service name
 	cfg.Service.Name = "bancaire"
 	if cfg.Service.Port == 0 {
-		cfg.Service.Port = 8081
+		cfg.Service.Port = 8083
 	}
 	if cfg.Service.MetricsPort == 0 {
-		cfg.Service.MetricsPort = 9091
+		cfg.Service.MetricsPort = 9083
 	}
 	if cfg.Kafka.GroupID == "" {
 		cfg.Kafka.GroupID = "bancaire-group"

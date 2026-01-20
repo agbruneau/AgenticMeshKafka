@@ -4,16 +4,20 @@ FROM golang:1.21-alpine AS builder
 WORKDIR /app
 
 # Install dependencies for confluent-kafka-go
-RUN apk add --no-cache gcc musl-dev librdkafka-dev pkgconf
+RUN apk add --no-cache gcc musl-dev librdkafka-dev pkgconf git
 
-# Copy go workspace and modules
-COPY go.work ./
+# Disable go workspace mode
+ENV GOWORK=off
+
+# Copy shared packages first
 COPY pkg/ ./pkg/
+
+# Copy service module
 COPY services/bancaire/ ./services/bancaire/
 
-# Download dependencies
+# Download dependencies and tidy
 WORKDIR /app/services/bancaire
-RUN go mod download
+RUN go mod tidy && go mod download
 
 # Build
 RUN CGO_ENABLED=1 GOOS=linux go build -tags musl -o /bancaire ./cmd/bancaire

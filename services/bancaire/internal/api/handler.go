@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/edalab/services/bancaire/internal/domain"
 	"github.com/edalab/services/bancaire/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -136,7 +137,7 @@ func (h *Handler) getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if transactions == nil {
-		transactions = make([]*repository.Transaction, 0)
+		transactions = make([]*domain.Transaction, 0)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -160,7 +161,7 @@ func (h *Handler) getComptesByClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if comptes == nil {
-		comptes = make([]*repository.Compte, 0)
+		comptes = make([]*domain.Compte, 0)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{

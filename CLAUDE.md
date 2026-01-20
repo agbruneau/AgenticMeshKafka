@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Terminology
 
 > **Important**: This project uses two numbering systems:
-> - **Itérations (1-8)**: EDA patterns from PDR.MD (1=Pub/Sub, 2=Event Sourcing, etc.)
+>
+> - **Itérations (1-8)**: EDA patterns from PRD.MD (1=Pub/Sub, 2=Event Sourcing, etc.)
 > - **Phases techniques (0-8)**: Technical build steps from PLAN.MD for MVP construction
 >
 > **Itération 1 (MVP Pub/Sub)** = **Phases techniques 0-8** from PLAN.MD
@@ -27,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture
 
 Monorepo with 3 Go microservices (MVP):
+
 - `simulator` - Generates fake banking events at configurable rate
 - `bancaire` - Consumes events, persists accounts/transactions to PostgreSQL
 - `gateway` - REST API proxy + WebSocket hub for real-time UI updates
@@ -74,6 +76,7 @@ make test-integration       # Go integration tests
 ## Key Conventions
 
 **Go Service Structure**:
+
 ```
 services/<name>/
 ├── cmd/<name>/main.go      # Entry point
@@ -95,32 +98,47 @@ services/<name>/
 
 **Tests**: Use `testcontainers-go` for integration tests with real Kafka/PostgreSQL. Build tags: `//go:build integration` or `//go:build e2e`
 
-## Project Iterations (EDA Patterns from PDR.MD)
+## Project Iterations (EDA Patterns from PRD.MD)
 
-| Itération | Pattern | Status |
-|-----------|---------|--------|
-| 1 - MVP | Pub/Sub | Code written, validation pending |
-| 2 | Event Sourcing | Planned |
-| 3 | CQRS | Planned |
-| 4 | Saga Choreography | Planned |
-| 5 | Saga Orchestration | Planned |
-| 6 | Event Streaming | Planned |
-| 7 | Dead Letter Queue | Planned |
-| 8 | Outbox Pattern | Planned |
+| Itération | Pattern            | Status                           |
+| --------- | ------------------ | -------------------------------- |
+| 1 - MVP   | Pub/Sub            | Code written, validation pending |
+| 2         | Event Sourcing     | Planned                          |
+| 3         | CQRS               | Planned                          |
+| 4         | Saga Choreography  | Planned                          |
+| 5         | Saga Orchestration | Planned                          |
+| 6         | Event Streaming    | Planned                          |
+| 7         | Dead Letter Queue  | Planned                          |
+| 8         | Outbox Pattern     | Planned                          |
 
-To implement a new iteration: `Implémente l'Itération [N] du projet EDA-Lab selon le PDR.MD et AGENT.MD`
+To implement a new iteration: `Implémente l'Itération [N] du projet EDA-Lab selon le PRD.MD et AGENT.MD`
 
 **Current status (Itération 1 MVP)**:
+
 - Code: ~90% written
 - Tests: Pending execution (`make test-infra`, `make test-integration`)
 - Validation: Run `./scripts/validate-mvp.sh` to complete
 
+## Strict TDD Workflow
+
+This project reinforces a **Strict TDD Protocol**. When implementing a feature:
+
+1.  **RED**: Create ONLY the test file (and empty implementation shells if needed for compilation). Run the test to confirm it FAILS.
+    - Command: `go test ./path/to/pkg/...` -> MUST FAIL
+2.  **GREEN**: Write the minimal implementation to make the test pass.
+    - Command: `go test ./path/to/pkg/...` -> MUST PASS
+3.  **REFACTOR**: Improve code quality without changing behavior.
+    - Command: `go test ./path/to/pkg/...` -> MUST PASS
+
+**Emergency Stop Protocol**:
+If `make test-infra` fails, **STOP IMMEDIATELY**. Do not attempt to write code or tests until the infrastructure is healthy.
+
 ## Project Documentation
 
-| File | Purpose |
-|------|---------|
-| `PDR.MD` | Product Definition Record - Itérations (EDA patterns) specifications |
-| `PLAN.MD` | Implementation plan - Phases techniques (0-8) with progress tracking |
-| `AGENT.MD` | Agent instructions for implementing iterations |
-| `docs/ARCHITECTURE.md` | C4 diagrams and technical architecture |
-| `docs/adr/` | Architecture Decision Records |
+| File                   | Purpose                                                              |
+| ---------------------- | -------------------------------------------------------------------- |
+| `PRD.MD`               | Product Definition Record - Itérations (EDA patterns) specifications |
+| `PLAN.MD`              | Implementation plan - Phases techniques (0-8) with progress tracking |
+| `AGENT.MD`             | Agent instructions for implementing iterations                       |
+| `docs/ARCHITECTURE.md` | C4 diagrams and technical architecture                               |
+| `docs/adr/`            | Architecture Decision Records                                        |

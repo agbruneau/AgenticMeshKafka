@@ -6,6 +6,7 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     hostname: kafka
     container_name: edalab-kafka
+    user: root
     ports:
       - "9092:9092"
       - "9999:9999"
@@ -171,17 +172,21 @@ services:
     profiles:
       - services
     ports:
-      - "8081:8081"
-      - "9081:9081"
+      - "8083:8083"
+      - "9083:9083"
     environment:
       SERVICE_NAME: bancaire
-      SERVICE_PORT: "8081"
-      METRICS_PORT: "9081"
+      SERVICE_PORT: "8083"
+      METRICS_PORT: "9083"
       LOG_LEVEL: debug
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       KAFKA_GROUP_ID: bancaire-group
-      DATABASE_DSN: postgres://edalab:edalab_password@postgres:5432/edalab?sslmode=disable
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: edalab
+      POSTGRES_USER: edalab
+      POSTGRES_PASSWORD: edalab_password
     depends_on:
       kafka:
         condition: service_healthy
@@ -190,7 +195,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8083/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -217,7 +222,7 @@ services:
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       KAFKA_GROUP_ID: gateway-group
       SIMULATOR_URL: http://simulator:8080
-      BANCAIRE_URL: http://bancaire:8081
+      BANCAIRE_URL: http://bancaire:8083
     depends_on:
       kafka:
         condition: service_healthy
