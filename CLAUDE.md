@@ -4,12 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**EDA-Lab** is an academic simulation of Event Driven Architecture (EDA) for learning EDA patterns in an enterprise ecosystem. The MVP (Itération 1) implements Pub/Sub with a simulated banking domain.
+**EDA-Lab** is an academic simulation of Event Driven Architecture (EDA) for learning EDA patterns. The MVP implements Pub/Sub with a simulated banking domain (French financial services context).
 
 ## Terminology
 
-> **Important**: This project uses two numbering systems:
->
+> **Important**: Two numbering systems are used:
 > - **Itérations (1-8)**: EDA patterns from PRD.MD (1=Pub/Sub, 2=Event Sourcing, etc.)
 > - **Phases techniques (0-8)**: Technical build steps from PLAN.MD for MVP construction
 >
@@ -17,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Tech Stack
 
-- **Backend**: Go 1.21+
+- **Backend**: Go 1.21+ (monorepo with 3 microservices)
 - **Message Broker**: Confluent Platform (Kafka KRaft mode, no ZooKeeper)
 - **Schema Registry**: Confluent Schema Registry with Avro
 - **Database**: PostgreSQL 16
@@ -27,40 +26,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-Monorepo with 3 Go microservices (MVP):
+```
+Simulator (produces) → Kafka → Bancaire (consumes/persists)
+                         ↓
+                      Gateway → WebSocket → web-ui
+```
 
+Services:
 - `simulator` - Generates fake banking events at configurable rate
 - `bancaire` - Consumes events, persists accounts/transactions to PostgreSQL
 - `gateway` - REST API proxy + WebSocket hub for real-time UI updates
-
-Events flow: **Simulator → Kafka → Bancaire**, with Gateway streaming to web-ui via WebSocket.
 
 Kafka topic naming: `<domain>.<entity>.<action>` (e.g., `bancaire.compte.ouvert`)
 
 ## Development Commands
 
 ```bash
-# Infrastructure (Kafka, Schema Registry, PostgreSQL, Prometheus, Grafana)
-make infra-up              # Start all infrastructure containers
+# Infrastructure
+make infra-up              # Start Kafka, Schema Registry, PostgreSQL, Prometheus, Grafana
 make infra-down            # Stop all containers
 make infra-logs            # View container logs
 make infra-clean           # Remove volumes and restart fresh
-make test-infra            # Validate infrastructure is healthy
+make test-infra            # Validate infrastructure health
 
-# Kafka operations
+# Kafka
 make kafka-topics                    # List all topics
 make kafka-create-topic TOPIC=name   # Create a specific topic
 ./scripts/create-topics.sh           # Create all MVP topics
-
-# Schema Registry
 ./scripts/register-schemas.sh        # Register all Avro schemas
 
-# Go services (from service directory)
+# Go services
 cd services/<service-name>
 go build ./cmd/...
 go test ./...
 go test -race ./...
-go test -v -run TestName ./path/to/package  # Single test
+go test -v -run TestName ./path/to/package  # Run single test
 
 # Frontend
 cd web-ui
@@ -68,14 +68,14 @@ npm install
 npm run dev     # Dev server on :5173
 npm run build   # Production build
 
-# Validation
-./scripts/validate-mvp.sh   # Full MVP validation (infra + services + tests)
-make test-integration       # Go integration tests
+# Testing & Validation
+make test-unit              # Unit tests
+make test-integration       # Integration tests (requires infra-up)
+make test-e2e               # End-to-end tests
+./scripts/validate-mvp.sh   # Full MVP validation
 ```
 
-## Key Conventions
-
-**Go Service Structure**:
+## Project Structure
 
 ```
 services/<name>/
@@ -84,61 +84,45 @@ services/<name>/
 │   ├── api/                # HTTP handlers
 │   ├── domain/             # Entities
 │   ├── handler/            # Kafka event handlers
-│   ├── repository/         # PostgreSQL persistence
-│   ├── generator/          # (simulator only) Fake data generation
-│   └── simulation/         # (simulator only) Simulation manager
-├── migrations/             # SQL migrations
+│   └── repository/         # PostgreSQL persistence
 ├── Dockerfile
 └── go.mod
+
+pkg/                        # Shared packages: config, kafka, database, events, observability
+schemas/<domain>/           # Avro schemas (namespace: com.edalab.<domain>.events)
+tests/integration/          # Integration tests (//go:build integration)
+tests/e2e/                  # E2E tests (//go:build e2e)
 ```
-
-**Shared packages** in `pkg/`: config, kafka, database, events, observability
-
-**Avro schemas** in `schemas/<domain>/` with namespace `com.edalab.<domain>.events`
-
-**Tests**: Use `testcontainers-go` for integration tests with real Kafka/PostgreSQL. Build tags: `//go:build integration` or `//go:build e2e`
-
-## Project Iterations (EDA Patterns from PRD.MD)
-
-| Itération | Pattern            | Status                           |
-| --------- | ------------------ | -------------------------------- |
-| 1 - MVP   | Pub/Sub            | Code written, validation pending |
-| 2         | Event Sourcing     | Planned                          |
-| 3         | CQRS               | Planned                          |
-| 4         | Saga Choreography  | Planned                          |
-| 5         | Saga Orchestration | Planned                          |
-| 6         | Event Streaming    | Planned                          |
-| 7         | Dead Letter Queue  | Planned                          |
-| 8         | Outbox Pattern     | Planned                          |
-
-To implement a new iteration: `Implémente l'Itération [N] du projet EDA-Lab selon le PRD.MD et AGENT.MD`
-
-**Current status (Itération 1 MVP)**:
-
-- Code: ~90% written
-- Tests: Pending execution (`make test-infra`, `make test-integration`)
-- Validation: Run `./scripts/validate-mvp.sh` to complete
 
 ## Strict TDD Workflow
 
-This project reinforces a **Strict TDD Protocol**. When implementing a feature:
+This project enforces **TDD Protocol**:
 
-1.  **RED**: Create ONLY the test file (and empty implementation shells if needed for compilation). Run the test to confirm it FAILS.
-    - Command: `go test ./path/to/pkg/...` -> MUST FAIL
-2.  **GREEN**: Write the minimal implementation to make the test pass.
-    - Command: `go test ./path/to/pkg/...` -> MUST PASS
-3.  **REFACTOR**: Improve code quality without changing behavior.
-    - Command: `go test ./path/to/pkg/...` -> MUST PASS
+1. **RED**: Create test file, run `go test ./path/...` → MUST FAIL
+2. **GREEN**: Write minimal implementation → MUST PASS
+3. **REFACTOR**: Improve without changing behavior → MUST PASS
 
-**Emergency Stop Protocol**:
-If `make test-infra` fails, **STOP IMMEDIATELY**. Do not attempt to write code or tests until the infrastructure is healthy.
+**Emergency Stop**: If `make test-infra` fails, STOP. Do not write code until infrastructure is healthy.
 
 ## Project Documentation
 
-| File                   | Purpose                                                              |
-| ---------------------- | -------------------------------------------------------------------- |
-| `PRD.MD`               | Product Definition Record - Itérations (EDA patterns) specifications |
-| `PLAN.MD`              | Implementation plan - Phases techniques (0-8) with progress tracking |
-| `AGENT.MD`             | Agent instructions for implementing iterations                       |
-| `docs/ARCHITECTURE.md` | C4 diagrams and technical architecture                               |
-| `docs/adr/`            | Architecture Decision Records                                        |
+| File       | Purpose                                              |
+|------------|------------------------------------------------------|
+| `PRD.MD`   | Product Definition - Itérations (EDA patterns) specs |
+| `PLAN.MD`  | Implementation plan - Phases techniques with details |
+| `AGENT.MD` | Agent instructions for implementing iterations       |
+
+To implement a new iteration: `Implémente l'Itération [N] du projet EDA-Lab selon le PRD.MD et AGENT.MD`
+
+## Key Patterns (Itérations)
+
+| # | Pattern            | Status  |
+|---|--------------------|---------|
+| 1 | Pub/Sub (MVP)      | Active  |
+| 2 | Event Sourcing     | Planned |
+| 3 | CQRS               | Planned |
+| 4 | Saga Choreography  | Planned |
+| 5 | Saga Orchestration | Planned |
+| 6 | Event Streaming    | Planned |
+| 7 | Dead Letter Queue  | Planned |
+| 8 | Outbox Pattern     | Planned |
