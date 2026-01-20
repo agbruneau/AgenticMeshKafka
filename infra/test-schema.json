@@ -1,0 +1,1 @@
+{"schema": "{\"type\":\"record\",\"name\":\"TestEvent\",\"namespace\":\"com.edalab.test\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"timestamp\",\"type\":\"long\"}]}"}

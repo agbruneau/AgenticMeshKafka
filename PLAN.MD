@@ -2829,7 +2829,7 @@ consumer.Consume(ctx, handler.Route)
 
 | Phase | Nom | Sous-étapes | Code | Tests | Statut |
 |-------|-----|-------------|------|-------|--------|
-| 0 | Infrastructure | 6 | ❌ | ❌ | Non commencé |
+| 0 | Infrastructure | 6 | ✓ | ✓ | Complété |
 | 1 | Fondations Go | 9 | ❌ | ❌ | Non commencé |
 | 2 | Schémas Avro | 3 | ❌ | ❌ | Non commencé |
 | 3 | Simulator | 6 | ❌ | ❌ | Non commencé |
