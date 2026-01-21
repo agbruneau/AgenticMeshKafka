@@ -19,6 +19,8 @@ from app.api.theory import router as theory_router
 from app.api.sandbox import router as sandbox_router
 from app.api.mocks import router as mocks_router
 from app.api.broker import router as broker_router
+from app.api.docs import router as docs_router
+from app.api.preferences import router as preferences_router
 
 
 @asynccontextmanager
@@ -49,6 +51,8 @@ app.include_router(theory_router, prefix="/api/theory", tags=["theory"])
 app.include_router(sandbox_router, prefix="/api/sandbox", tags=["sandbox"])
 app.include_router(mocks_router, prefix="/mocks", tags=["mocks"])
 app.include_router(broker_router, prefix="/api/broker", tags=["broker"])
+app.include_router(docs_router, tags=["docs"])
+app.include_router(preferences_router, tags=["preferences"])
 
 
 # File d'événements SSE globale

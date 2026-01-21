@@ -1,0 +1,512 @@
+{
+  "patterns": [
+    {
+      "id": "api-gateway",
+      "name": "API Gateway",
+      "pillar": "applications",
+      "category": "Integration",
+      "problem": "Comment fournir un point d'entrée unique pour plusieurs services backend avec des besoins communs de sécurité et monitoring?",
+      "solution": "Implémenter un gateway qui centralise routing, authentification, rate limiting, et observabilité.",
+      "when_to_use": [
+        "Plusieurs services à exposer à des clients externes",
+        "Besoins communs de sécurité (auth, rate limit)",
+        "Nécessité d'un contrat d'API stable"
+      ],
+      "when_not_to_use": [
+        "Application monolithique simple",
+        "Communication interne uniquement"
+      ],
+      "related_patterns": ["bff", "rate-limiting", "circuit-breaker"],
+      "insurance_example": "Gateway exposant les APIs Quote, Policy, Claims aux courtiers et app mobile"
+    },
+    {
+      "id": "bff",
+      "name": "Backend for Frontend (BFF)",
+      "pillar": "applications",
+      "category": "Integration",
+      "problem": "Comment adapter les APIs pour des clients avec des besoins très différents (mobile vs desktop vs B2B)?",
+      "solution": "Créer un backend dédié par canal qui agrège et optimise les données pour son client spécifique.",
+      "when_to_use": [
+        "Clients avec besoins très différents",
+        "Optimisation payload mobile",
+        "Équipes frontend autonomes"
+      ],
+      "when_not_to_use": [
+        "Un seul type de client",
+        "Besoins très similaires entre canaux"
+      ],
+      "related_patterns": ["api-gateway", "api-composition"],
+      "insurance_example": "BFF Mobile avec payloads réduits vs BFF Courtier avec données complètes"
+    },
+    {
+      "id": "api-composition",
+      "name": "API Composition",
+      "pillar": "applications",
+      "category": "Integration",
+      "problem": "Comment agréger des données de plusieurs services pour créer une vue unifiée?",
+      "solution": "Créer un service d'agrégation qui appelle plusieurs sources et compose une réponse unique.",
+      "when_to_use": [
+        "Vue 360° nécessitant plusieurs sources",
+        "Dashboard agrégé",
+        "Données distribuées entre microservices"
+      ],
+      "when_not_to_use": [
+        "Données déjà dans un seul service",
+        "Latence critique (considérer le caching)"
+      ],
+      "related_patterns": ["bff", "caching"],
+      "insurance_example": "Vue 360° client: Customer + Policies + Claims + Invoices"
+    },
+    {
+      "id": "anti-corruption-layer",
+      "name": "Anti-Corruption Layer (ACL)",
+      "pillar": "applications",
+      "category": "Integration",
+      "problem": "Comment protéger son domaine des modèles et langages d'un système externe ou legacy?",
+      "solution": "Créer une couche de traduction qui isole le domaine et adapte les données entrantes/sortantes.",
+      "when_to_use": [
+        "Intégration avec système legacy",
+        "Modèles de données incompatibles",
+        "Protection du domaine métier"
+      ],
+      "when_not_to_use": [
+        "Systèmes avec modèles compatibles",
+        "Intégration temporaire jetable"
+      ],
+      "related_patterns": ["strangler-fig", "adapter"],
+      "insurance_example": "Traduction entre le format COBOL du legacy PAS et le modèle moderne"
+    },
+    {
+      "id": "strangler-fig",
+      "name": "Strangler Fig Pattern",
+      "pillar": "applications",
+      "category": "Migration",
+      "problem": "Comment migrer progressivement d'un système legacy vers un nouveau sans big bang?",
+      "solution": "Router progressivement le trafic du legacy vers le nouveau système, fonctionnalité par fonctionnalité.",
+      "when_to_use": [
+        "Migration de système legacy",
+        "Risque de big bang trop élevé",
+        "Système complexe à remplacer"
+      ],
+      "when_not_to_use": [
+        "Système simple remplaçable d'un coup",
+        "Contraintes de temps très serrées"
+      ],
+      "related_patterns": ["anti-corruption-layer"],
+      "insurance_example": "Migration du PAS COBOL vers le nouveau système Python"
+    },
+    {
+      "id": "circuit-breaker",
+      "name": "Circuit Breaker",
+      "pillar": "cross_cutting",
+      "category": "Resilience",
+      "problem": "Comment éviter les cascades de pannes quand un service downstream est défaillant?",
+      "solution": "Implémenter un circuit qui coupe les appels après N échecs et teste périodiquement la récupération.",
+      "when_to_use": [
+        "Appels à des services externes",
+        "Services avec latence variable",
+        "Protection contre les cascades"
+      ],
+      "when_not_to_use": [
+        "Opérations critiques sans alternative",
+        "Services très stables et locaux"
+      ],
+      "related_patterns": ["retry", "fallback", "bulkhead"],
+      "insurance_example": "Protection des appels au Rating API externe"
+    },
+    {
+      "id": "retry-backoff",
+      "name": "Retry with Exponential Backoff",
+      "pillar": "cross_cutting",
+      "category": "Resilience",
+      "problem": "Comment gérer les erreurs temporaires sans surcharger le service défaillant?",
+      "solution": "Réessayer avec des délais croissants (1s, 2s, 4s, 8s...) pour laisser le service récupérer.",
+      "when_to_use": [
+        "Erreurs réseau temporaires",
+        "Service temporairement surchargé",
+        "Opérations idempotentes"
+      ],
+      "when_not_to_use": [
+        "Erreurs permanentes (404, 400)",
+        "Opérations non-idempotentes"
+      ],
+      "related_patterns": ["circuit-breaker", "idempotency"],
+      "insurance_example": "Retry sur échec d'envoi de notification"
+    },
+    {
+      "id": "pubsub",
+      "name": "Publish/Subscribe",
+      "pillar": "events",
+      "category": "Messaging",
+      "problem": "Comment permettre à plusieurs systèmes de réagir à un événement sans couplage direct?",
+      "solution": "Le producteur publie sur un topic, les consommateurs s'abonnent et reçoivent tous l'événement.",
+      "when_to_use": [
+        "Plusieurs consommateurs pour un événement",
+        "Découplage total requis",
+        "Ajout facile de nouveaux consommateurs"
+      ],
+      "when_not_to_use": [
+        "Un seul consommateur (utiliser queue)",
+        "Réponse synchrone requise"
+      ],
+      "related_patterns": ["message-queue", "event-notification"],
+      "insurance_example": "PolicyCreated notifie Billing, Notifications, Documents, Audit"
+    },
+    {
+      "id": "message-queue",
+      "name": "Message Queue",
+      "pillar": "events",
+      "category": "Messaging",
+      "problem": "Comment garantir qu'un message est traité par exactement un consommateur avec load balancing?",
+      "solution": "File point-à-point où chaque message est consommé une seule fois (competing consumers).",
+      "when_to_use": [
+        "Un seul consommateur par message",
+        "Load balancing entre workers",
+        "Ordre de traitement garanti"
+      ],
+      "when_not_to_use": [
+        "Plusieurs consommateurs doivent recevoir le même message"
+      ],
+      "related_patterns": ["pubsub", "competing-consumers"],
+      "insurance_example": "Queue de traitement des claims avec plusieurs workers"
+    },
+    {
+      "id": "event-sourcing",
+      "name": "Event Sourcing",
+      "pillar": "events",
+      "category": "State Management",
+      "problem": "Comment maintenir un historique complet de toutes les modifications pour audit et replay?",
+      "solution": "Stocker l'état comme séquence d'événements immuables, reconstruire l'état par replay.",
+      "when_to_use": [
+        "Audit trail obligatoire",
+        "Besoin de reconstuire des états passés",
+        "Domaines complexes avec historique riche"
+      ],
+      "when_not_to_use": [
+        "CRUD simple sans besoin d'historique",
+        "Équipe non formée au pattern"
+      ],
+      "related_patterns": ["cqrs", "event-store"],
+      "insurance_example": "Historique complet du cycle de vie d'une police"
+    },
+    {
+      "id": "cqrs",
+      "name": "CQRS",
+      "pillar": "events",
+      "category": "State Management",
+      "problem": "Comment optimiser séparément les modèles de lecture et d'écriture qui ont des besoins différents?",
+      "solution": "Séparer les modèles: Command (écriture) et Query (lecture) avec synchronisation par événements.",
+      "when_to_use": [
+        "Lectures et écritures avec patterns très différents",
+        "Besoin de scalabilité asymétrique",
+        "Modèles de lecture dénormalisés"
+      ],
+      "when_not_to_use": [
+        "Application CRUD simple",
+        "Complexité non justifiée"
+      ],
+      "related_patterns": ["event-sourcing", "projection"],
+      "insurance_example": "Model write transactionnel vs model read optimisé reporting"
+    },
+    {
+      "id": "saga",
+      "name": "Saga Pattern",
+      "pillar": "events",
+      "category": "Transaction",
+      "problem": "Comment gérer des transactions impliquant plusieurs services sans transaction distribuée (2PC)?",
+      "solution": "Séquence d'étapes locales avec compensations automatiques en cas d'échec.",
+      "when_to_use": [
+        "Transactions multi-services",
+        "Besoin de rollback automatique",
+        "Processus métier long"
+      ],
+      "when_not_to_use": [
+        "Transaction simple dans un seul service",
+        "Cohérence forte absolument requise"
+      ],
+      "related_patterns": ["compensation", "orchestration", "choreography"],
+      "insurance_example": "Souscription: Quote→Policy→Billing avec compensation si Billing échoue"
+    },
+    {
+      "id": "outbox",
+      "name": "Outbox Pattern",
+      "pillar": "events",
+      "category": "Reliability",
+      "problem": "Comment garantir qu'un événement est publié si et seulement si la transaction DB est commitée?",
+      "solution": "Écrire l'événement dans une table outbox dans la même transaction, puis le publier async.",
+      "when_to_use": [
+        "Besoin d'atomicité DB + événement",
+        "Fiabilité de publication critique",
+        "Pas de transaction distribuée"
+      ],
+      "when_not_to_use": [
+        "Perte d'événement acceptable",
+        "Système simple sans DB transaction"
+      ],
+      "related_patterns": ["saga", "at-least-once"],
+      "insurance_example": "Garantir que PolicyCreated est publié si la police est créée en DB"
+    },
+    {
+      "id": "dead-letter-queue",
+      "name": "Dead Letter Queue (DLQ)",
+      "pillar": "events",
+      "category": "Error Handling",
+      "problem": "Comment gérer les messages qui ne peuvent pas être traités après plusieurs tentatives?",
+      "solution": "Après N échecs, déplacer le message vers une DLQ pour analyse et retraitement manuel.",
+      "when_to_use": [
+        "Messages pouvant échouer de façon permanente",
+        "Besoin d'analyse des erreurs",
+        "Retraitement manuel possible"
+      ],
+      "when_not_to_use": [
+        "Messages toujours traitables (erreurs transitoires uniquement)"
+      ],
+      "related_patterns": ["retry", "message-queue"],
+      "insurance_example": "Claims avec données invalides après 3 tentatives"
+    },
+    {
+      "id": "etl",
+      "name": "ETL (Extract-Transform-Load)",
+      "pillar": "data",
+      "category": "Data Integration",
+      "problem": "Comment déplacer et transformer des données d'une source vers une cible en batch?",
+      "solution": "Pipeline en 3 phases: extraction source, transformation, chargement cible.",
+      "when_to_use": [
+        "Synchronisation batch acceptable",
+        "Transformations complexes",
+        "Volumes massifs"
+      ],
+      "when_not_to_use": [
+        "Temps réel requis (utiliser CDC)",
+        "Données déjà au bon format"
+      ],
+      "related_patterns": ["cdc", "data-pipeline"],
+      "insurance_example": "Export nocturne des sinistres vers le Data Warehouse"
+    },
+    {
+      "id": "cdc",
+      "name": "Change Data Capture (CDC)",
+      "pillar": "data",
+      "category": "Data Integration",
+      "problem": "Comment synchroniser des données en temps réel sans impact sur la source?",
+      "solution": "Capturer les changements (INSERT/UPDATE/DELETE) via les logs DB et les propager.",
+      "when_to_use": [
+        "Synchronisation temps réel requise",
+        "Pas d'impact sur la source",
+        "Volumes importants de changements"
+      ],
+      "when_not_to_use": [
+        "Batch nocturne suffisant",
+        "Source sans support CDC"
+      ],
+      "related_patterns": ["etl", "streaming"],
+      "insurance_example": "Sync temps réel Policy Admin → Data Warehouse"
+    },
+    {
+      "id": "mdm",
+      "name": "Master Data Management (MDM)",
+      "pillar": "data",
+      "category": "Data Quality",
+      "problem": "Comment avoir une vision unique et fiable des entités de référence (client, produit)?",
+      "solution": "Centraliser, matcher, merger les données de référence pour créer un golden record.",
+      "when_to_use": [
+        "Données client/produit dans plusieurs systèmes",
+        "Besoin de vue unifiée",
+        "Problèmes de qualité de données"
+      ],
+      "when_not_to_use": [
+        "Une seule source de données",
+        "Pas de besoin de consolidation"
+      ],
+      "related_patterns": ["data-quality", "golden-record"],
+      "insurance_example": "Golden record client unifiant PAS, Claims, Billing"
+    },
+    {
+      "id": "data-lineage",
+      "name": "Data Lineage",
+      "pillar": "data",
+      "category": "Governance",
+      "problem": "Comment savoir d'où viennent les données et quelles transformations ont été appliquées?",
+      "solution": "Documenter et tracer automatiquement l'origine et les transformations des données.",
+      "when_to_use": [
+        "Compliance et audit requis",
+        "Debug de données incorrectes",
+        "Impact analysis avant modification"
+      ],
+      "when_not_to_use": [
+        "Données triviales sans transformation"
+      ],
+      "related_patterns": ["data-quality", "etl"],
+      "insurance_example": "Tracer l'origine du KPI taux de sinistralité"
+    },
+    {
+      "id": "data-quality",
+      "name": "Data Quality Checks",
+      "pillar": "data",
+      "category": "Governance",
+      "problem": "Comment garantir que les données sont complètes, exactes, cohérentes et fraîches?",
+      "solution": "Implémenter des contrôles automatisés sur les dimensions de qualité avec alertes.",
+      "when_to_use": [
+        "Données critiques pour le business",
+        "Problèmes de qualité constatés",
+        "Compliance requise"
+      ],
+      "when_not_to_use": [
+        "Données jetables ou temporaires"
+      ],
+      "related_patterns": ["data-lineage", "mdm"],
+      "insurance_example": "Validation complétude et cohérence des polices avant chargement DWH"
+    },
+    {
+      "id": "distributed-tracing",
+      "name": "Distributed Tracing",
+      "pillar": "cross_cutting",
+      "category": "Observability",
+      "problem": "Comment suivre une requête à travers tous les services pour debugger les problèmes?",
+      "solution": "Propager un trace_id unique à travers tous les appels et collecter les spans.",
+      "when_to_use": [
+        "Architecture microservices",
+        "Debugging de latence",
+        "Identification des goulots"
+      ],
+      "when_not_to_use": [
+        "Application monolithique simple"
+      ],
+      "related_patterns": ["correlation-id", "observability"],
+      "insurance_example": "Tracer une souscription de Gateway à DWH"
+    },
+    {
+      "id": "rate-limiting",
+      "name": "Rate Limiting",
+      "pillar": "cross_cutting",
+      "category": "Protection",
+      "problem": "Comment protéger les services contre les abus et surcharges?",
+      "solution": "Limiter le nombre de requêtes par client/IP dans une fenêtre de temps.",
+      "when_to_use": [
+        "APIs publiques",
+        "Protection contre les abus",
+        "Fair usage entre clients"
+      ],
+      "when_not_to_use": [
+        "Services internes de confiance",
+        "Trafic très variable légitime"
+      ],
+      "related_patterns": ["api-gateway", "throttling"],
+      "insurance_example": "100 requêtes/minute par courtier via le Gateway"
+    },
+    {
+      "id": "jwt-authentication",
+      "name": "JWT Authentication",
+      "pillar": "cross_cutting",
+      "category": "Security",
+      "problem": "Comment authentifier les requêtes entre services de manière stateless?",
+      "solution": "Utiliser des tokens JWT signés contenant l'identité et les droits.",
+      "when_to_use": [
+        "Architecture stateless",
+        "Microservices",
+        "SSO requis"
+      ],
+      "when_not_to_use": [
+        "Session server-side suffisante",
+        "Révocation immédiate critique"
+      ],
+      "related_patterns": ["oauth", "rbac"],
+      "insurance_example": "Auth des courtiers via JWT avec rôles"
+    },
+    {
+      "id": "bulkhead",
+      "name": "Bulkhead Pattern",
+      "pillar": "cross_cutting",
+      "category": "Resilience",
+      "problem": "Comment isoler les pannes pour qu'elles n'affectent pas l'ensemble du système?",
+      "solution": "Partitionner les ressources (threads, connexions) en pools isolés par service/fonctionnalité.",
+      "when_to_use": [
+        "Services avec criticité différente",
+        "Protection contre la saturation",
+        "Isolation des dépendances"
+      ],
+      "when_not_to_use": [
+        "Ressources limitées non partageables",
+        "Système simple avec peu de dépendances"
+      ],
+      "related_patterns": ["circuit-breaker", "rate-limiting"],
+      "insurance_example": "Pool de connexions séparé pour Claims vs Quote Engine"
+    },
+    {
+      "id": "fallback",
+      "name": "Fallback Pattern",
+      "pillar": "cross_cutting",
+      "category": "Resilience",
+      "problem": "Comment fournir une réponse acceptable quand le service principal est indisponible?",
+      "solution": "Définir une valeur par défaut, cache, ou service alternatif en cas d'échec.",
+      "when_to_use": [
+        "Service critique avec alternative acceptable",
+        "UX dégradée préférable à l'erreur",
+        "Cache disponible"
+      ],
+      "when_not_to_use": [
+        "Données doivent être fraîches",
+        "Pas de valeur par défaut sensée"
+      ],
+      "related_patterns": ["circuit-breaker", "cache"],
+      "insurance_example": "Tarifs par défaut si Rating API indisponible"
+    },
+    {
+      "id": "competing-consumers",
+      "name": "Competing Consumers",
+      "pillar": "events",
+      "category": "Messaging",
+      "problem": "Comment paralléliser le traitement des messages pour augmenter le throughput?",
+      "solution": "Plusieurs consommateurs écoutent la même queue et se partagent les messages.",
+      "when_to_use": [
+        "Volume de messages important",
+        "Traitement parallélisable",
+        "Scalabilité horizontale"
+      ],
+      "when_not_to_use": [
+        "Ordre strict des messages requis",
+        "État partagé entre messages"
+      ],
+      "related_patterns": ["message-queue", "consumer-group"],
+      "insurance_example": "Workers parallèles pour le traitement des claims"
+    },
+    {
+      "id": "event-notification",
+      "name": "Event Notification",
+      "pillar": "events",
+      "category": "Messaging",
+      "problem": "Comment notifier d'autres systèmes qu'un changement a eu lieu sans envoyer les données?",
+      "solution": "Publier un événement minimal avec juste l'identifiant, le consommateur récupère les détails.",
+      "when_to_use": [
+        "Données volumineuses",
+        "Consommateurs n'ont pas tous besoin des mêmes données",
+        "Réduction de la bande passante"
+      ],
+      "when_not_to_use": [
+        "Consommateur a besoin de toutes les données",
+        "Source ne supporte pas le callback"
+      ],
+      "related_patterns": ["pubsub", "api-composition"],
+      "insurance_example": "Notification ClaimCreated avec juste claim_id"
+    },
+    {
+      "id": "data-pipeline",
+      "name": "Data Pipeline",
+      "pillar": "data",
+      "category": "Data Integration",
+      "problem": "Comment orchestrer plusieurs étapes de transformation de données de bout en bout?",
+      "solution": "Créer un DAG de tâches avec dépendances, retry, et monitoring.",
+      "when_to_use": [
+        "Transformations en plusieurs étapes",
+        "Dépendances entre transformations",
+        "Besoin de monitoring et reprise"
+      ],
+      "when_not_to_use": [
+        "Transformation simple en une étape",
+        "Temps réel strict"
+      ],
+      "related_patterns": ["etl", "cdc", "orchestration"],
+      "insurance_example": "Pipeline nocturne: Extract policies → Join customers → Aggregate metrics → Load DWH"
+    }
+  ]
+}

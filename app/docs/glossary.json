@@ -1,0 +1,455 @@
+{
+  "terms": [
+    {
+      "id": "api-gateway",
+      "term": "API Gateway",
+      "definition": "Point d'entrée unique qui route les requêtes vers les services backend, applique l'authentification, le rate limiting et l'observabilité.",
+      "pillar": "applications",
+      "aliases": ["Gateway", "Passerelle API"],
+      "related": ["bff", "rate-limiting", "authentication"]
+    },
+    {
+      "id": "bff",
+      "term": "Backend for Frontend (BFF)",
+      "definition": "API spécialisée pour un canal client spécifique (mobile, web, partenaire), optimisant les payloads et l'expérience.",
+      "pillar": "applications",
+      "aliases": ["BFF", "Backend For Frontend"],
+      "related": ["api-gateway", "api-composition"]
+    },
+    {
+      "id": "api-composition",
+      "term": "API Composition",
+      "definition": "Pattern d'agrégation de données provenant de plusieurs services pour créer une réponse unifiée (ex: vue 360° client).",
+      "pillar": "applications",
+      "aliases": ["Agrégation", "Composition"],
+      "related": ["bff", "api-gateway"]
+    },
+    {
+      "id": "acl",
+      "term": "Anti-Corruption Layer (ACL)",
+      "definition": "Couche d'isolation qui protège un domaine des modèles et langages d'un autre domaine, souvent legacy.",
+      "pillar": "applications",
+      "aliases": ["ACL", "Couche anti-corruption"],
+      "related": ["strangler-fig", "adapter"]
+    },
+    {
+      "id": "strangler-fig",
+      "term": "Strangler Fig Pattern",
+      "definition": "Pattern de migration progressive où le nouveau système remplace graduellement l'ancien, comme un figuier étrangleur.",
+      "pillar": "applications",
+      "aliases": ["Strangler", "Migration progressive"],
+      "related": ["acl", "adapter"]
+    },
+    {
+      "id": "circuit-breaker",
+      "term": "Circuit Breaker",
+      "definition": "Pattern de résilience qui coupe les appels vers un service défaillant pour éviter les cascades de pannes. États: CLOSED, OPEN, HALF_OPEN.",
+      "pillar": "cross_cutting",
+      "aliases": ["Coupe-circuit", "Disjoncteur"],
+      "related": ["retry", "fallback", "bulkhead"]
+    },
+    {
+      "id": "retry",
+      "term": "Retry with Backoff",
+      "definition": "Stratégie de réessai avec délai croissant (exponential backoff) pour gérer les erreurs temporaires.",
+      "pillar": "cross_cutting",
+      "aliases": ["Réessai", "Backoff exponentiel"],
+      "related": ["circuit-breaker", "fallback"]
+    },
+    {
+      "id": "fallback",
+      "term": "Fallback",
+      "definition": "Solution de repli utilisée quand le service principal est indisponible (cache, valeur par défaut, service alternatif).",
+      "pillar": "cross_cutting",
+      "aliases": ["Solution de repli", "Dégradation gracieuse"],
+      "related": ["circuit-breaker", "retry"]
+    },
+    {
+      "id": "bulkhead",
+      "term": "Bulkhead",
+      "definition": "Pattern d'isolation des ressources (threads, connexions) pour limiter l'impact d'une panne à un sous-ensemble du système.",
+      "pillar": "cross_cutting",
+      "aliases": ["Cloison", "Isolation"],
+      "related": ["circuit-breaker"]
+    },
+    {
+      "id": "pubsub",
+      "term": "Publish/Subscribe (Pub/Sub)",
+      "definition": "Pattern de messaging où les producteurs publient sur des topics et les consommateurs s'abonnent sans se connaître directement.",
+      "pillar": "events",
+      "aliases": ["Pub/Sub", "Publication/Abonnement"],
+      "related": ["message-queue", "event-bus", "topic"]
+    },
+    {
+      "id": "message-queue",
+      "term": "Message Queue",
+      "definition": "File d'attente point-à-point où chaque message est consommé par un seul consommateur (competing consumers).",
+      "pillar": "events",
+      "aliases": ["Queue", "File de messages"],
+      "related": ["pubsub", "dlq"]
+    },
+    {
+      "id": "event-sourcing",
+      "term": "Event Sourcing",
+      "definition": "Pattern où l'état d'une entité est stocké comme une séquence d'événements immuables plutôt qu'un état courant.",
+      "pillar": "events",
+      "aliases": ["Sourcing d'événements"],
+      "related": ["cqrs", "event-store", "replay"]
+    },
+    {
+      "id": "cqrs",
+      "term": "CQRS",
+      "definition": "Command Query Responsibility Segregation - Séparation des modèles de lecture (Query) et d'écriture (Command) pour optimiser chaque usage.",
+      "pillar": "events",
+      "aliases": ["Command Query Responsibility Segregation"],
+      "related": ["event-sourcing", "projection"]
+    },
+    {
+      "id": "saga",
+      "term": "Saga Pattern",
+      "definition": "Pattern de gestion des transactions distribuées avec séquence d'étapes et compensations automatiques en cas d'échec.",
+      "pillar": "events",
+      "aliases": ["Saga", "Transaction distribuée"],
+      "related": ["compensation", "orchestration", "choreography"]
+    },
+    {
+      "id": "outbox",
+      "term": "Outbox Pattern",
+      "definition": "Pattern garantissant l'atomicité entre une écriture DB et la publication d'un événement via une table intermédiaire.",
+      "pillar": "events",
+      "aliases": ["Transactional Outbox"],
+      "related": ["saga", "at-least-once"]
+    },
+    {
+      "id": "dlq",
+      "term": "Dead Letter Queue (DLQ)",
+      "definition": "File spéciale où sont placés les messages qui n'ont pas pu être traités après plusieurs tentatives.",
+      "pillar": "events",
+      "aliases": ["DLQ", "File des erreurs"],
+      "related": ["message-queue", "retry"]
+    },
+    {
+      "id": "idempotence",
+      "term": "Idempotence",
+      "definition": "Propriété d'une opération pouvant être exécutée plusieurs fois avec le même résultat (crucial pour le retry).",
+      "pillar": "events",
+      "aliases": ["Idempotent"],
+      "related": ["at-least-once", "retry"]
+    },
+    {
+      "id": "at-least-once",
+      "term": "At-Least-Once Delivery",
+      "definition": "Garantie de livraison où chaque message est délivré au moins une fois (peut être dupliqué).",
+      "pillar": "events",
+      "aliases": ["Livraison garantie"],
+      "related": ["idempotence", "exactly-once"]
+    },
+    {
+      "id": "etl",
+      "term": "ETL (Extract-Transform-Load)",
+      "definition": "Pipeline de données qui extrait d'une source, transforme les données, et les charge dans une cible.",
+      "pillar": "data",
+      "aliases": ["Extract Transform Load", "Pipeline ETL"],
+      "related": ["elt", "data-pipeline", "batch"]
+    },
+    {
+      "id": "cdc",
+      "term": "CDC (Change Data Capture)",
+      "definition": "Technique de capture des changements de données en temps réel (INSERT, UPDATE, DELETE) pour synchronisation.",
+      "pillar": "data",
+      "aliases": ["Change Data Capture", "Capture de changements"],
+      "related": ["etl", "streaming", "debezium"]
+    },
+    {
+      "id": "mdm",
+      "term": "MDM (Master Data Management)",
+      "definition": "Gestion des données de référence pour avoir un golden record unique et fiable (ex: client unique).",
+      "pillar": "data",
+      "aliases": ["Master Data Management", "Gestion données maîtres"],
+      "related": ["golden-record", "data-quality"]
+    },
+    {
+      "id": "golden-record",
+      "term": "Golden Record",
+      "definition": "Enregistrement de référence unique et consolidé à partir de plusieurs sources (résultat du MDM).",
+      "pillar": "data",
+      "aliases": ["Enregistrement doré", "Single Source of Truth"],
+      "related": ["mdm", "data-quality"]
+    },
+    {
+      "id": "data-lineage",
+      "term": "Data Lineage",
+      "definition": "Traçabilité de l'origine des données, des transformations appliquées et de leur destination.",
+      "pillar": "data",
+      "aliases": ["Lignage de données", "Traçabilité"],
+      "related": ["data-quality", "etl"]
+    },
+    {
+      "id": "data-quality",
+      "term": "Data Quality",
+      "definition": "Ensemble des dimensions mesurant la qualité des données: complétude, exactitude, cohérence, fraîcheur.",
+      "pillar": "data",
+      "aliases": ["Qualité des données", "DQ"],
+      "related": ["data-lineage", "mdm", "profiling"]
+    },
+    {
+      "id": "eventual-consistency",
+      "term": "Eventual Consistency",
+      "definition": "Modèle de cohérence où les données seront cohérentes à terme, avec un délai de propagation accepté.",
+      "pillar": "data",
+      "aliases": ["Cohérence éventuelle", "Consistance à terme"],
+      "related": ["strong-consistency", "cap-theorem"]
+    },
+    {
+      "id": "orchestration",
+      "term": "Orchestration",
+      "definition": "Coordination centralisée où un orchestrateur contrôle le flux d'exécution de plusieurs services.",
+      "pillar": "events",
+      "aliases": ["Orchestrateur"],
+      "related": ["choreography", "saga"]
+    },
+    {
+      "id": "choreography",
+      "term": "Choreography",
+      "definition": "Coordination décentralisée où chaque service réagit aux événements sans coordinateur central.",
+      "pillar": "events",
+      "aliases": ["Chorégraphie"],
+      "related": ["orchestration", "pubsub"]
+    },
+    {
+      "id": "jwt",
+      "term": "JWT (JSON Web Token)",
+      "definition": "Token auto-contenu signé contenant des claims (identité, droits) pour l'authentification inter-services.",
+      "pillar": "cross_cutting",
+      "aliases": ["JSON Web Token"],
+      "related": ["oauth", "authentication"]
+    },
+    {
+      "id": "rate-limiting",
+      "term": "Rate Limiting",
+      "definition": "Limitation du nombre de requêtes par client/IP dans une fenêtre de temps pour protéger les services.",
+      "pillar": "cross_cutting",
+      "aliases": ["Throttling", "Limitation de débit"],
+      "related": ["api-gateway", "bulkhead"]
+    },
+    {
+      "id": "distributed-tracing",
+      "term": "Distributed Tracing",
+      "definition": "Technique pour suivre une requête à travers tous les services via un trace_id unique.",
+      "pillar": "cross_cutting",
+      "aliases": ["Tracing distribué", "Request tracing"],
+      "related": ["observability", "correlation-id"]
+    },
+    {
+      "id": "observability",
+      "term": "Observability",
+      "definition": "Capacité à comprendre l'état interne d'un système via ses outputs: logs, métriques, traces.",
+      "pillar": "cross_cutting",
+      "aliases": ["Observabilité"],
+      "related": ["distributed-tracing", "monitoring"]
+    },
+    {
+      "id": "pas",
+      "term": "PAS (Policy Administration System)",
+      "definition": "Système central de gestion des polices d'assurance (création, modification, résiliation).",
+      "pillar": "domain",
+      "aliases": ["Policy Admin System", "Système de gestion polices"],
+      "related": ["policy", "quote"]
+    },
+    {
+      "id": "policy",
+      "term": "Police (Policy)",
+      "definition": "Contrat d'assurance en vigueur entre l'assureur et l'assuré, définissant les garanties.",
+      "pillar": "domain",
+      "aliases": ["Policy", "Contrat d'assurance"],
+      "related": ["quote", "claim", "premium"]
+    },
+    {
+      "id": "quote",
+      "term": "Devis (Quote)",
+      "definition": "Proposition tarifaire pour une couverture d'assurance, valide pour une durée limitée.",
+      "pillar": "domain",
+      "aliases": ["Quote", "Cotation"],
+      "related": ["policy", "premium"]
+    },
+    {
+      "id": "claim",
+      "term": "Sinistre (Claim)",
+      "definition": "Déclaration d'un événement couvert par la police, déclenchant potentiellement une indemnisation.",
+      "pillar": "domain",
+      "aliases": ["Claim", "Réclamation"],
+      "related": ["policy"]
+    },
+    {
+      "id": "premium",
+      "term": "Prime (Premium)",
+      "definition": "Montant payé par l'assuré en échange de la couverture d'assurance.",
+      "pillar": "domain",
+      "aliases": ["Premium", "Cotisation"],
+      "related": ["policy", "quote"]
+    },
+    {
+      "id": "underwriting",
+      "term": "Souscription (Underwriting)",
+      "definition": "Processus d'évaluation et d'acceptation des risques pour établir une police d'assurance.",
+      "pillar": "domain",
+      "aliases": ["Underwriting"],
+      "related": ["quote", "policy"]
+    },
+    {
+      "id": "adr",
+      "term": "ADR (Architecture Decision Record)",
+      "definition": "Document court capturant une décision d'architecture significative avec son contexte et ses conséquences.",
+      "pillar": "cross_cutting",
+      "aliases": ["Architecture Decision Record"],
+      "related": []
+    },
+    {
+      "id": "cap-theorem",
+      "term": "Théorème CAP",
+      "definition": "Dans un système distribué, on ne peut garantir que 2 des 3 propriétés: Consistency, Availability, Partition tolerance.",
+      "pillar": "cross_cutting",
+      "aliases": ["CAP", "Brewer's theorem"],
+      "related": ["eventual-consistency", "strong-consistency"]
+    },
+    {
+      "id": "sla",
+      "term": "SLA (Service Level Agreement)",
+      "definition": "Accord définissant les niveaux de service attendus (disponibilité, latence, throughput).",
+      "pillar": "cross_cutting",
+      "aliases": ["Service Level Agreement", "Accord de niveau de service"],
+      "related": ["slo", "sli"]
+    },
+    {
+      "id": "timeout",
+      "term": "Timeout",
+      "definition": "Délai maximum d'attente avant d'abandonner une opération et de déclencher une erreur ou un fallback.",
+      "pillar": "cross_cutting",
+      "aliases": ["Délai d'expiration"],
+      "related": ["circuit-breaker", "retry"]
+    },
+    {
+      "id": "topic",
+      "term": "Topic",
+      "definition": "Canal de publication dans un système Pub/Sub où les messages sont envoyés et depuis lequel les abonnés reçoivent.",
+      "pillar": "events",
+      "aliases": ["Channel", "Sujet"],
+      "related": ["pubsub", "partition"]
+    },
+    {
+      "id": "partition",
+      "term": "Partition",
+      "definition": "Subdivision d'un topic permettant le parallélisme et garantissant l'ordre au sein de chaque partition.",
+      "pillar": "events",
+      "aliases": ["Shard"],
+      "related": ["topic", "kafka"]
+    },
+    {
+      "id": "consumer-group",
+      "term": "Consumer Group",
+      "definition": "Groupe de consommateurs se partageant les partitions d'un topic pour le load balancing.",
+      "pillar": "events",
+      "aliases": ["Groupe de consommateurs"],
+      "related": ["partition", "competing-consumers"]
+    },
+    {
+      "id": "event-bus",
+      "term": "Event Bus",
+      "definition": "Infrastructure de messaging permettant la publication et la consommation d'événements entre services.",
+      "pillar": "events",
+      "aliases": ["Bus d'événements", "Message Broker"],
+      "related": ["pubsub", "kafka", "rabbitmq"]
+    },
+    {
+      "id": "projection",
+      "term": "Projection",
+      "definition": "Vue matérialisée construite en rejoignant des événements, optimisée pour un cas d'usage de lecture spécifique.",
+      "pillar": "events",
+      "aliases": ["Read Model", "Vue matérialisée"],
+      "related": ["cqrs", "event-sourcing"]
+    },
+    {
+      "id": "compensation",
+      "term": "Compensation",
+      "definition": "Action inverse exécutée pour annuler les effets d'une étape précédente dans une saga.",
+      "pillar": "events",
+      "aliases": ["Rollback", "Undo"],
+      "related": ["saga", "orchestration"]
+    },
+    {
+      "id": "dwh",
+      "term": "DWH (Data Warehouse)",
+      "definition": "Entrepôt de données centralisé optimisé pour l'analyse et le reporting, alimenté par ETL/CDC.",
+      "pillar": "data",
+      "aliases": ["Data Warehouse", "Entrepôt de données"],
+      "related": ["etl", "bi", "olap"]
+    },
+    {
+      "id": "bi",
+      "term": "BI (Business Intelligence)",
+      "definition": "Outils et processus d'analyse des données pour la prise de décision (dashboards, rapports).",
+      "pillar": "data",
+      "aliases": ["Business Intelligence", "Décisionnel"],
+      "related": ["dwh", "reporting", "kpi"]
+    },
+    {
+      "id": "olap",
+      "term": "OLAP",
+      "definition": "Online Analytical Processing - Modèle de données multidimensionnel pour l'analyse (cubes, dimensions, mesures).",
+      "pillar": "data",
+      "aliases": ["Online Analytical Processing", "Cube OLAP"],
+      "related": ["dwh", "bi"]
+    },
+    {
+      "id": "slo",
+      "term": "SLO (Service Level Objective)",
+      "definition": "Objectif mesurable de niveau de service (ex: 99.9% disponibilité, p99 latence < 200ms).",
+      "pillar": "cross_cutting",
+      "aliases": ["Service Level Objective"],
+      "related": ["sla", "sli"]
+    },
+    {
+      "id": "sli",
+      "term": "SLI (Service Level Indicator)",
+      "definition": "Métrique mesurant le niveau de service actuel (ex: taux d'erreur, latence moyenne).",
+      "pillar": "cross_cutting",
+      "aliases": ["Service Level Indicator"],
+      "related": ["slo", "sla"]
+    },
+    {
+      "id": "exactly-once",
+      "term": "Exactly-Once Delivery",
+      "definition": "Garantie de livraison où chaque message est délivré exactement une fois (difficile à atteindre).",
+      "pillar": "events",
+      "aliases": ["Livraison exacte"],
+      "related": ["at-least-once", "idempotence"]
+    }
+  ],
+  "pillars": {
+    "applications": {
+      "name": "Intégration Applications",
+      "icon": "🔗",
+      "color": "#3B82F6"
+    },
+    "events": {
+      "name": "Intégration Événements",
+      "icon": "⚡",
+      "color": "#F97316"
+    },
+    "data": {
+      "name": "Intégration Données",
+      "icon": "📊",
+      "color": "#22C55E"
+    },
+    "cross_cutting": {
+      "name": "Patterns Transversaux",
+      "icon": "🛡️",
+      "color": "#8B5CF6"
+    },
+    "domain": {
+      "name": "Domaine Assurance",
+      "icon": "🏢",
+      "color": "#6B7280"
+    }
+  }
+}
