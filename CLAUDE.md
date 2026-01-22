@@ -16,8 +16,6 @@ npm run build    # Build for production (output: ./dist)
 npm run preview  # Preview production build locally
 ```
 
-Deploys automatically to GitHub Pages on push to `main` via `.github/workflows/deploy.yml`.
-
 ## Architecture
 
 **Tech Stack**: Astro 5.0 + Tailwind CSS + @tailwindcss/typography
