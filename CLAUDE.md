@@ -25,10 +25,10 @@ This is a high-performance Fibonacci calculator implementing multiple algorithms
 
 ### Entry Points → Orchestration → Business → Presentation
 
-1. **Entry Points** (`cmd/fibcalc`): CLI main, routes to CLI/Server/REPL modes
+1. **Entry Points** (`cmd/fibcalc`): CLI main, routes to CLI/Server/REPL/TUI modes
 2. **Orchestration** (`internal/orchestration`): Parallel algorithm execution, result aggregation
 3. **Business** (`internal/fibonacci`, `internal/bigfft`): Core algorithms and FFT multiplication
-4. **Presentation** (`internal/cli`, `internal/server`): User interface and HTTP API
+4. **Presentation** (`internal/cli`, `internal/tui`, `internal/server`): User interface, TUI, and HTTP API
 
 ### Core Packages
 
@@ -39,6 +39,7 @@ This is a high-performance Fibonacci calculator implementing multiple algorithms
 | `internal/orchestration` | Concurrent algorithm execution with timeout/cancellation |
 | `internal/server` | REST API: `/calculate`, `/health`, `/algorithms`, `/metrics` |
 | `internal/cli` | REPL, spinner, progress bar with ETA, color themes |
+| `internal/tui` | Rich Terminal UI using Bubbletea (navigation, progress, theming) |
 | `internal/calibration` | Auto-tuning to find optimal thresholds per hardware |
 | `internal/config` | Configuration management and validation |
 | `internal/service` | Business logic layer |
@@ -76,7 +77,8 @@ This is a high-performance Fibonacci calculator implementing multiple algorithms
 - **Adaptive Parallelism**: Parallelism enabled only above configurable threshold
 - **Task Semaphore**: Limits concurrent goroutines to `runtime.NumCPU()*2` in `internal/fibonacci/common.go`
 - **Optimized Zeroing**: Uses Go 1.21+ `clear()` builtin instead of loops in `internal/bigfft`
-- **Interface-Based Decoupling**: Orchestration layer uses `ProgressReporter` and `ResultPresenter` interfaces (defined in `internal/orchestration/interfaces.go`) to avoid depending on CLI. Implementations in `internal/cli/presenter.go`
+- **Interface-Based Decoupling**: Orchestration layer uses `ProgressReporter` and `ResultPresenter` interfaces (defined in `internal/orchestration/interfaces.go`) to avoid depending on CLI. Implementations in `internal/cli/presenter.go` and `internal/tui/presenter.go`
+- **Elm Architecture (TUI)**: The TUI follows Bubbletea's Elm-inspired Model-Update-View pattern with message-based state updates
 
 ## Naming Conventions
 
@@ -84,6 +86,12 @@ This is a high-performance Fibonacci calculator implementing multiple algorithms
 - `Display*` functions: Write formatted output to `io.Writer` (e.g., `DisplayResult`)
 - `Format*` functions: Return formatted string, no I/O (e.g., `FormatQuietResult`)
 - `Write*` functions: Write data to filesystem (e.g., `WriteResultToFile`)
+
+**TUI Package (`internal/tui/`)**:
+- `view*.go` files: View rendering functions for each screen (home, calculator, progress, results, comparison, settings, help)
+- `update*` methods: Handle key/message events for each view
+- `*Msg` types: Messages for state updates (ProgressMsg, ResultMsg, etc.)
+- `*State` structs: View-specific state within the Model
 
 ## Adding New Components
 
@@ -103,3 +111,8 @@ Run specific tests: `go test -v -run <TestName> ./internal/<package>/`
 ## Key Dependencies
 
 prometheus/client_golang, zerolog, go.opentelemetry.io/otel, golang.org/x/sync, gmp
+
+**TUI Dependencies** (Charm stack):
+- `github.com/charmbracelet/bubbletea` - Elm-inspired TUI framework
+- `github.com/charmbracelet/bubbles` - Common UI components (help, key bindings)
+- `github.com/charmbracelet/lipgloss` - Style definitions and rendering

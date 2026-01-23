@@ -96,6 +96,10 @@ type AppConfig struct {
 	// Concise, if false (default), suppresses the display of the calculated value section.
 	// Set to true with -c/--calculate to display the calculated value.
 	Concise bool
+	// TUIMode, if true, starts the application in interactive TUI mode.
+	// The TUI provides a rich terminal interface with navigation, progress bars,
+	// and interactive algorithm selection.
+	TUIMode bool
 }
 
 // ToCalculationOptions converts the application configuration into
@@ -194,6 +198,7 @@ func ParseConfig(programName string, args []string, errorWriter io.Writer, avail
 	fs.StringVar(&config.Completion, "completion", "", "Generate shell completion script (bash, zsh, fish, powershell).")
 	fs.BoolVar(&config.Concise, "calculate", false, "Display the calculated value (disabled by default).")
 	fs.BoolVar(&config.Concise, "c", false, "Display the calculated value (shorthand).")
+	fs.BoolVar(&config.TUIMode, "tui", false, "Start in interactive TUI mode with rich terminal interface.")
 
 	setCustomUsage(fs)
 

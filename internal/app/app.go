@@ -18,6 +18,7 @@ import (
 	"github.com/agbru/fibcalc/internal/fibonacci"
 	"github.com/agbru/fibcalc/internal/orchestration"
 	"github.com/agbru/fibcalc/internal/server"
+	"github.com/agbru/fibcalc/internal/tui"
 	"github.com/agbru/fibcalc/internal/ui"
 )
 
@@ -136,6 +137,11 @@ func (a *Application) Run(ctx context.Context, out io.Writer) int {
 		return a.runServer()
 	}
 
+	// TUI mode
+	if a.Config.TUIMode {
+		return a.runTUI()
+	}
+
 	// Interactive REPL mode
 	if a.Config.Interactive {
 		return a.runREPL()
@@ -184,6 +190,11 @@ func (a *Application) runREPL() int {
 	})
 	repl.Start()
 	return apperrors.ExitSuccess
+}
+
+// runTUI starts the interactive TUI mode using Bubbletea.
+func (a *Application) runTUI() int {
+	return tui.Run(a.Config, a.Factory.GetAll())
 }
 
 // runCalibration runs the full calibration mode.

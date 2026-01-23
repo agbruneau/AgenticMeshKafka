@@ -68,6 +68,7 @@ FibCalc serves as both a practical high-performance tool and a reference impleme
 - **Interface-Based Decoupling**: The orchestration layer uses `ProgressReporter` and `ResultPresenter` interfaces to avoid depending on CLI, enabling testability and alternative presentations.
 - **Interactive REPL**: A dedicated shell for performing multiple calculations, comparisons, and conversions without reloading the binary.
 - **Modern CLI**: Features progress spinners, ETA calculation, formatted output, and colour themes.
+- **Rich TUI Mode**: Full-featured Terminal User Interface built with Bubbletea, featuring navigation, progress visualization, and theming.
 - **Observability**: Production-grade structured logging (zerolog) and Prometheus metrics.
 
 ---
@@ -141,6 +142,7 @@ graph TD
     User[User/Client] --> Entry{Entry Point}
     Entry -->|CLI Flags| Config[Configuration]
     Entry -->|--interactive| REPL[REPL Mode]
+    Entry -->|--tui| TUI[TUI Mode]
     Entry -->|--server| Server[HTTP Server]
     Entry -->|Default| Runner[Orchestration]
 
@@ -154,6 +156,7 @@ graph TD
 
     Server --> Runner
     REPL --> Runner
+    TUI --> Runner
 ```
 
 ### Core Components
@@ -166,6 +169,7 @@ graph TD
 | `internal/orchestration` | Manages concurrent execution, result aggregation, and defines `ProgressReporter`/`ResultPresenter` interfaces for Clean Architecture decoupling. |
 | `internal/server` | HTTP REST API with rate limiting, security headers, and health checks. |
 | `internal/cli` | REPL, progress bar, spinner, and output formatting (Display*/Format*/Write*). |
+| `internal/tui` | Rich Terminal User Interface using Bubbletea with navigation, progress, and theming. |
 | `internal/calibration` | Auto-tuning logic to find optimal hardware thresholds. |
 | `internal/logging` | Structured logging with zerolog adapters. |
 | `internal/app` | Application composition root, lifecycle management, dependency injection. |
@@ -226,6 +230,7 @@ fibcalc [flags]
 | `--calculate` | `-c` | `false` | Print the full value (auto-suppressed for large $N$). |
 | `--calibrate` | | `false` | Run system benchmarks to find optimal thresholds. |
 | `--interactive` | | `false` | Start the interactive REPL mode. |
+| `--tui` | | `false` | Start in interactive TUI mode with rich terminal interface. |
 | `--server` | | `false` | Start in HTTP server mode. |
 | `--timeout` | | `5m` | Maximum calculation time (e.g. "10s", "1h"). |
 
@@ -256,7 +261,31 @@ fibcalc --interactive
 # fib> exit
 ```
 
-**4. Large Number with FFT Tuning**
+**4. Rich TUI Mode**
+Launch the full-featured Terminal User Interface for an interactive experience.
+
+```bash
+fibcalc --tui
+```
+
+### TUI Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `Shift+Tab` | Navigate between fields |
+| `Enter` | Confirm / Start calculation |
+| `Esc` | Cancel / Go back |
+| `q` / `Ctrl+C` | Quit |
+| `?` / `F1` | Help |
+| `c` | New calculation |
+| `m` | Compare all algorithms |
+| `t` | Change theme |
+| `s` | Settings |
+| `x` | Toggle hexadecimal display |
+| `v` | Toggle full value display |
+| `Ctrl+S` | Save result to file |
+
+**5. Large Number with FFT Tuning**
 Force FFT usage for a smaller threshold to test performance on lower-end hardware.
 
 ```bash
