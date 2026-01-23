@@ -71,12 +71,31 @@ This is a high-performance Fibonacci calculator implementing multiple algorithms
 - **Object Pooling**: `sync.Pool` for `big.Int` and calculation states (20-30% perf gain)
 - **Smart Multiplication**: `smartMultiply` selects Karatsuba vs FFT based on operand size
 - **Adaptive Parallelism**: Parallelism enabled only above configurable threshold
+- **Task Semaphore**: Limits concurrent goroutines to `runtime.NumCPU()*2` in `internal/fibonacci/common.go`
+- **Optimized Zeroing**: Uses Go 1.21+ `clear()` builtin instead of loops in `internal/bigfft`
+- **Interface-Based Decoupling**: Orchestration layer uses `ProgressReporter` and `ResultPresenter` interfaces (defined in `internal/orchestration/interfaces.go`) to avoid depending on CLI. Implementations in `internal/cli/presenter.go`
+
+## Naming Conventions
+
+**CLI Package (`internal/cli/output.go`)**:
+- `Display*` functions: Write formatted output to `io.Writer` (e.g., `DisplayResult`)
+- `Format*` functions: Return formatted string, no I/O (e.g., `FormatQuietResult`)
+- `Write*` functions: Write data to filesystem (e.g., `WriteResultToFile`)
 
 ## Adding New Components
 
 **New Algorithm**: Implement `coreCalculator` interface in `internal/fibonacci`, register in `calculatorRegistry`
 
 **New API Endpoint**: Add handler in `internal/server/server.go`, register route in `NewServer()`, update OpenAPI docs
+
+## Test Coverage
+
+Key test files added during refactorisation:
+- `internal/logging/logger_test.go` - Tests for logging adapters and field helpers
+- `internal/server/security_test.go` - Tests for CORS headers and SecurityMiddleware
+- `internal/server/metrics_test.go` - Tests for Prometheus metrics
+
+Run specific tests: `go test -v -run <TestName> ./internal/<package>/`
 
 ## Key Dependencies
 

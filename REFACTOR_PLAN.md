@@ -2,7 +2,9 @@
 
 ## Résumé
 
-Ce plan couvre la refactorisation et l'optimisation du dépôt FibCalc, un calculateur Fibonacci haute performance en Go. Les changements sont organisés en 6 phases par ordre de priorité et de risque.
+Ce plan couvre la refactorisation et l'optimisation du dépôt FibCalc, un calculateur Fibonacci haute performance en Go. Les changements sont organisés en 7 phases par ordre de priorité et de risque.
+
+**Statut: ✅ COMPLÉTÉ** - Toutes les phases (1-7) implémentées.
 
 ---
 
@@ -108,11 +110,69 @@ Ce plan couvre la refactorisation et l'optimisation du dépôt FibCalc, un calcu
 
 ---
 
-## Phase 6: Améliorations Architecture (Risque: ÉLEVÉ - Différé)
+## Phase 6: Améliorations Architecture (Risque: ÉLEVÉ) ✅ COMPLÉTÉE
 
-### 6.1 Réduire couplage CLI (À considérer plus tard)
-- Introduction d'interfaces à la frontière CLI
-- Priorité basse - couplage actuel acceptable
+### 6.1 Éliminer la dépendance inverse orchestration → CLI ✅
+**Problème**: Le package `orchestration` importait `cli`, violant les principes Clean Architecture (la couche métier ne doit pas dépendre de la présentation).
+
+**Solution implémentée**:
+- ✅ Créé `ProgressReporter` interface dans `internal/orchestration/interfaces.go`
+- ✅ Créé `ResultPresenter` interface pour découpler la présentation des résultats
+- ✅ Créé `NullProgressReporter` pour le mode silencieux
+- ✅ Refactorisé `ExecuteCalculations()` pour accepter un `ProgressReporter`
+- ✅ Refactorisé `AnalyzeComparisonResults()` pour accepter un `ResultPresenter`
+- ✅ Supprimé les imports `cli` et `ui` du package `orchestration`
+
+### 6.2 Implémentations CLI des interfaces ✅
+**Fichier**: `internal/cli/presenter.go`
+- ✅ `CLIProgressReporter` - Implémente `orchestration.ProgressReporter`
+- ✅ `CLIResultPresenter` - Implémente `orchestration.ResultPresenter`
+  - `PresentComparisonTable()` - Affiche le tableau de comparaison coloré
+  - `PresentResult()` - Affiche le résultat final
+  - `FormatDuration()` - Formate les durées
+  - `HandleError()` - Gère les erreurs avec codes de sortie
+
+### 6.3 Injection de dépendances dans app layer ✅
+**Fichier**: `internal/app/app.go`
+- ✅ Injecte `CLIProgressReporter{}` ou `NullProgressReporter{}` selon le mode
+- ✅ Injecte `CLIResultPresenter{}` pour l'analyse des résultats
+
+**Bénéfices**:
+- Orchestration ne dépend plus de CLI (Clean Architecture respectée)
+- Meilleure testabilité (interfaces mockables)
+- Séparation claire des responsabilités
+
+---
+
+## Phase 7: Mise à Jour de la Documentation (Risque: FAIBLE) ✅ COMPLÉTÉE
+
+**Objectif**: Assurer que toute la documentation reflète l'état actuel du code après refactorisation.
+
+### 7.1 Mettre à jour le README.md ✅
+- ✅ Ajouté optimisations Phase 4 (task semaphore, clear())
+- ✅ Mis à jour section "Key Commands" avec commandes complètes
+- ✅ Ajouté packages `internal/cli` et `internal/logging` au tableau des composants
+
+### 7.2 Documenter l'API REST ✅
+- ✅ Documentation API déjà complète dans `Docs/api/API.md`
+- ✅ Date mise à jour (January 2026)
+
+### 7.3 Documentation du code ✅
+- ✅ Package `internal/cli/output.go` documenté avec conventions de nommage (Phase 5)
+- ✅ Interfaces et fonctions critiques déjà documentées
+
+### 7.4 Mettre à jour CLAUDE.md ✅
+- ✅ Ajouté patterns Phase 4 (Task Semaphore, Optimized Zeroing)
+- ✅ Ajouté conventions de nommage Phase 5 (Display*/Format*/Write*)
+- ✅ Ajouté section Test Coverage avec fichiers créés en Phase 1
+
+### 7.5 Vérifier CONTRIBUTING.md ✅
+- ✅ Guide de contribution déjà complet et bien structuré
+- ✅ Aucune modification nécessaire
+
+### 7.6 Créer cmd/fibcalc/main.go ✅ (CRITIQUE - était manquant)
+- ✅ Point d'entrée de l'application créé
+- ✅ Gestion du flag --version ajoutée
 
 ---
 
@@ -131,6 +191,15 @@ Ce plan couvre la refactorisation et l'optimisation du dépôt FibCalc, un calcu
 | 4 | `internal/bigfft/bump.go` | Utiliser clear() | ✅ |
 | 4 | `internal/fibonacci/common.go` | Ajouter taskSemaphore | ✅ |
 | 5 | `internal/cli/output.go` | Documenter conventions nommage | ✅ |
+| 6 | `internal/orchestration/interfaces.go` | CRÉER - Interfaces découplage | ✅ |
+| 6 | `internal/orchestration/orchestrator.go` | Utiliser interfaces | ✅ |
+| 6 | `internal/cli/presenter.go` | CRÉER - Implémentations CLI | ✅ |
+| 6 | `internal/app/app.go` | Injection de dépendances | ✅ |
+| 7 | `README.md` | Mise à jour complète | ✅ |
+| 7 | `Docs/api/API.md` | Documentation API REST | ✅ |
+| 7 | `CLAUDE.md` | Refléter changements Phase 1-5 | ✅ |
+| 7 | `CONTRIBUTING.md` | Vérifier (déjà complet) | ✅ |
+| 7 | `cmd/fibcalc/main.go` | CRÉER (manquant) | ✅ |
 
 ---
 
@@ -171,6 +240,10 @@ Phase 1 (Tests) ✅
         → Phase 3 (Complexité) ✅
             → Phase 4 (Performance) ✅
                 → Phase 5 (Nommage) ✅
+                    → Phase 6 (Architecture) ✅
+                        → Phase 7 (Documentation) ✅
 ```
 
 Chaque phase est indépendamment testable et déployable.
+
+**🎉 Refactorisation complétée!** Toutes les phases ont été implémentées.

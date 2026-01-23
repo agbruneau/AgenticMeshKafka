@@ -57,6 +57,8 @@ FibCalc serves as both a practical high-performance tool and a reference impleme
 
 - **Zero-Allocation Strategy**: Extensive use of `sync.Pool` to recycle `big.Int` objects and custom calculation states, reducing Garbage Collector pressure by over 95%.
 - **Adaptive Parallelism**: Automatically parallelizes recursive branches and matrix operations across CPU cores based on input size and hardware capabilities.
+- **Concurrency Limiting**: Task semaphore limits concurrent goroutines to `runtime.NumCPU()*2`, preventing contention and memory pressure during parallel multiplication.
+- **Optimized Memory Zeroing**: Uses Go 1.21+ `clear()` builtin for efficient slice zeroing in FFT operations.
 - **Auto-Calibration**: Built-in benchmarking tool (`--calibrate`) to empirically determine the optimal parallelism and FFT thresholds for the host machine.
 - **Atomic Pre-Warming**: Optimized memory pool initialization ensures resources are ready before the first request.
 
@@ -159,10 +161,12 @@ graph TD
 |-----------|----------------|
 | `cmd/fibcalc` | Application composition root and entry point. |
 | `internal/fibonacci` | Core domain logic. Implements the `Calculator` interface and algorithms. |
-| `internal/bigfft` | Specialized FFT arithmetic for `big.Int`. |
+| `internal/bigfft` | Specialized FFT arithmetic for `big.Int` with memory pooling. |
 | `internal/orchestration` | Manages concurrent execution and race-safe result aggregation. |
-| `internal/server` | HTTP REST API with rate limiting, metrics, and health checks. |
+| `internal/server` | HTTP REST API with rate limiting, security headers, and health checks. |
+| `internal/cli` | REPL, progress bar, spinner, and output formatting (Display*/Format*/Write*). |
 | `internal/calibration` | Auto-tuning logic to find optimal hardware thresholds. |
+| `internal/logging` | Structured logging with zerolog adapters. |
 
 ---
 
@@ -364,10 +368,14 @@ FibCalc is designed for cloud-native deployment.
 ### Key Commands
 
 ```bash
-make build       # Compile binary
-make test        # Run unit tests
-make lint        # Run linters
+make build       # Compile binary to ./build/fibcalc
+make test        # Run all tests with race detector
+make test-short  # Run tests without slow ones
+make lint        # Run golangci-lint
+make check       # Run format + lint + test
+make coverage    # Generate coverage report (coverage.html)
 make benchmark   # Run performance benchmarks
+make clean       # Remove build artifacts
 ```
 
 ### Project Structure

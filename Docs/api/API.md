@@ -1,7 +1,7 @@
 # REST API Documentation
 
-> **Version**: 1.0.0  
-> **Last Updated**: November 2025
+> **Version**: 1.0.0
+> **Last Updated**: January 2026
 
 This document describes the endpoints available in the Fibonacci Calculator REST API.
 

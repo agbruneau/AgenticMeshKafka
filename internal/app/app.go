@@ -219,14 +219,18 @@ func (a *Application) runCalculate(ctx context.Context, out io.Writer) int {
 		cli.PrintExecutionMode(calculatorsToRun, out)
 	}
 
-	// In quiet mode, use a discard writer for progress display
+	// Choose progress reporter based on quiet mode
+	var progressReporter orchestration.ProgressReporter
 	progressOut := out
 	if a.Config.Quiet {
 		progressOut = io.Discard
+		progressReporter = orchestration.NullProgressReporter{}
+	} else {
+		progressReporter = cli.CLIProgressReporter{}
 	}
 
 	// Execute calculations
-	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, a.Config, progressOut)
+	results := orchestration.ExecuteCalculations(ctx, calculatorsToRun, a.Config, progressReporter, progressOut)
 
 	// Handle JSON output
 	if a.Config.JSONOutput {
@@ -261,7 +265,7 @@ func (a *Application) analyzeResultsWithOutput(results []orchestration.Calculati
 	}
 
 	// Use standard analysis for non-quiet mode
-	exitCode := orchestration.AnalyzeComparisonResults(results, a.Config, out)
+	exitCode := orchestration.AnalyzeComparisonResults(results, a.Config, cli.CLIResultPresenter{}, out)
 
 	// Handle file output and hex display for non-quiet mode
 	if bestResult != nil && exitCode == apperrors.ExitSuccess {

@@ -32,7 +32,7 @@ func TestExecuteCalculationsRespectsStrassenConfig(t *testing.T) {
 		Algo:              "matrix",
 	}
 
-	ExecuteCalculations(context.Background(), calculators, cfg, io.Discard)
+	ExecuteCalculations(context.Background(), calculators, cfg, NullProgressReporter{}, io.Discard)
 
 	if spy.capturedOpts.StrassenThreshold != 12345 {
 		t.Errorf("ExecuteCalculations failed to pass StrassenThreshold. Expected 12345, got %d", spy.capturedOpts.StrassenThreshold)

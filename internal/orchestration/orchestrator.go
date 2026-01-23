@@ -7,16 +7,13 @@ import (
 	"math/big"
 	"sort"
 	"sync"
-	"text/tabwriter"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/agbru/fibcalc/internal/cli"
 	"github.com/agbru/fibcalc/internal/config"
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
-	"github.com/agbru/fibcalc/internal/ui"
 )
 
 // CalculationResult encapsulates the outcome of a single Fibonacci calculation.
@@ -49,18 +46,19 @@ const ProgressBufferMultiplier = 5
 //   - ctx: The context for managing cancellation and deadlines.
 //   - calculators: A slice of calculators to execute.
 //   - cfg: The application configuration (N, thresholds, etc.).
+//   - progressReporter: The progress reporter for displaying updates (use NullProgressReporter for quiet mode).
 //   - out: The io.Writer for displaying progress updates.
 //
 // Returns:
 //   - []CalculationResult: A slice containing the results of each calculation.
-func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, out io.Writer) []CalculationResult {
+func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator, cfg config.AppConfig, progressReporter ProgressReporter, out io.Writer) []CalculationResult {
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]CalculationResult, len(calculators))
 	progressChan := make(chan fibonacci.ProgressUpdate, len(calculators)*ProgressBufferMultiplier)
 
 	var displayWg sync.WaitGroup
 	displayWg.Add(1)
-	go cli.DisplayProgress(&displayWg, progressChan, len(calculators), out)
+	go progressReporter.DisplayProgress(&displayWg, progressChan, len(calculators), out)
 
 	for i, calc := range calculators {
 		idx, calculator := i, calc
@@ -92,11 +90,12 @@ func ExecuteCalculations(ctx context.Context, calculators []fibonacci.Calculator
 // Parameters:
 //   - results: The slice of calculation results to analyze.
 //   - cfg: The application configuration.
+//   - presenter: The result presenter for display formatting.
 //   - out: The io.Writer for the summary report.
 //
 // Returns:
 //   - int: An exit code indicating success (0) or the type of failure.
-func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, out io.Writer) int {
+func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig, presenter ResultPresenter, out io.Writer) int {
 	sort.Slice(results, func(i, j int) bool {
 		if (results[i].Err == nil) != (results[j].Err == nil) {
 			return results[i].Err == nil
@@ -104,52 +103,34 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 		return results[i].Duration < results[j].Duration
 	})
 
-	var firstValidResult *big.Int
-	var firstValidResultDuration time.Duration
+	var firstValidResult *CalculationResult
 	var firstError error
 	successCount := 0
 
-	fmt.Fprintf(out, "\n--- Comparison Summary ---\n")
-	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	fmt.Fprintf(tw, "%sAlgorithm%s\t%sDuration%s\t%sStatus%s\n",
-		ui.ColorUnderline(), ui.ColorReset(), ui.ColorUnderline(), ui.ColorReset(), ui.ColorUnderline(), ui.ColorReset())
-
-	for _, res := range results {
-		var status string
-		if res.Err != nil {
-			status = fmt.Sprintf("%s❌ Failure (%v)%s", ui.ColorRed(), res.Err, ui.ColorReset())
+	for i := range results {
+		if results[i].Err != nil {
 			if firstError == nil {
-				firstError = res.Err
+				firstError = results[i].Err
 			}
 		} else {
-			status = fmt.Sprintf("%s✅ Success%s", ui.ColorGreen(), ui.ColorReset())
 			successCount++
 			if firstValidResult == nil {
-				firstValidResult = res.Result
-				firstValidResultDuration = res.Duration
+				firstValidResult = &results[i]
 			}
 		}
-		duration := cli.FormatExecutionDuration(res.Duration)
-		if res.Duration == 0 {
-			duration = "< 1µs"
-		}
-		fmt.Fprintf(tw, "%s%s%s\t%s%s%s\t%s\n",
-			ui.ColorBlue(), res.Name, ui.ColorReset(),
-			ui.ColorYellow(), duration, ui.ColorReset(),
-			status)
 	}
-	if err := tw.Flush(); err != nil {
-		fmt.Fprintf(out, "Warning: failed to flush tabwriter: %v\n", err)
-	}
+
+	// Present the comparison table
+	presenter.PresentComparisonTable(results, out)
 
 	if successCount == 0 {
 		fmt.Fprintf(out, "\nGlobal Status: Failure. No algorithm could complete the calculation.\n")
-		return apperrors.HandleCalculationError(firstError, 0, out, cli.CLIColorProvider{})
+		return presenter.HandleError(firstError, 0, out)
 	}
 
 	mismatch := false
 	for _, res := range results {
-		if res.Err == nil && res.Result.Cmp(firstValidResult) != 0 {
+		if res.Err == nil && res.Result.Cmp(firstValidResult.Result) != 0 {
 			mismatch = true
 			break
 		}
@@ -160,6 +141,6 @@ func AnalyzeComparisonResults(results []CalculationResult, cfg config.AppConfig,
 	}
 
 	fmt.Fprintf(out, "\nGlobal Status: Success. All valid results are consistent.")
-	cli.DisplayResult(firstValidResult, cfg.N, firstValidResultDuration, cfg.Verbose, cfg.Details, cfg.Concise, out)
+	presenter.PresentResult(*firstValidResult, cfg.N, cfg.Verbose, cfg.Details, cfg.Concise, out)
 	return apperrors.ExitSuccess
 }

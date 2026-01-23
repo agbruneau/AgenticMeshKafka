@@ -3,6 +3,7 @@ package orchestration
 import (
 	"context"
 	"errors"
+	"io"
 	"math/big"
 	"testing"
 	"time"
@@ -11,6 +12,17 @@ import (
 	apperrors "github.com/agbru/fibcalc/internal/errors"
 	"github.com/agbru/fibcalc/internal/fibonacci"
 )
+
+// MockResultPresenter is a mock implementation of ResultPresenter for testing.
+type MockResultPresenter struct{}
+
+func (MockResultPresenter) PresentComparisonTable(results []CalculationResult, out io.Writer) {}
+func (MockResultPresenter) PresentResult(result CalculationResult, n uint64, verbose, details, concise bool, out io.Writer) {
+}
+func (MockResultPresenter) FormatDuration(d time.Duration) string { return d.String() }
+func (MockResultPresenter) HandleError(err error, duration time.Duration, out io.Writer) int {
+	return apperrors.ExitErrorGeneric
+}
 
 // MockCalculator is a mock implementation of fibonacci.Calculator
 // used for testing the orchestration logic without invoking real algorithms.
@@ -80,7 +92,7 @@ func TestExecuteCalculations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			results := ExecuteCalculations(context.Background(), tt.calculators, config.AppConfig{}, &DiscardWriter{})
+			results := ExecuteCalculations(context.Background(), tt.calculators, config.AppConfig{}, NullProgressReporter{}, &DiscardWriter{})
 			if len(results) != tt.expectedLen {
 				t.Errorf("expected %d results, got %d", tt.expectedLen, len(results))
 			}
@@ -144,7 +156,7 @@ func TestAnalyzeComparisonResults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			status := AnalyzeComparisonResults(tt.results, config.AppConfig{}, &DiscardWriter{})
+			status := AnalyzeComparisonResults(tt.results, config.AppConfig{}, MockResultPresenter{}, &DiscardWriter{})
 			if status != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, status)
 			}
