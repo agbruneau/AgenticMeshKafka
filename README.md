@@ -21,13 +21,14 @@
 6. [Installation](#-installation)
 7. [Usage Guide](#%EF%B8%8F-usage-guide)
 8. [Server Mode (REST API)](#-server-mode-rest-api)
-9. [Performance Benchmarks](#-performance-benchmarks)
-10. [Troubleshooting](#-troubleshooting)
-11. [Configuration](#%EF%B8%8F-configuration)
-12. [Deployment](#-deployment)
-13. [Development](#-development)
-14. [Contributing](#-contributing)
-15. [License](#-license)
+9. [TUI Mode](#%EF%B8%8F-tui-mode)
+10. [Performance Benchmarks](#-performance-benchmarks)
+11. [Troubleshooting](#-troubleshooting)
+12. [Configuration](#%EF%B8%8F-configuration)
+13. [Deployment](#-deployment)
+14. [Development](#-development)
+15. [Contributing](#-contributing)
+16. [License](#-license)
 
 ---
 
@@ -268,22 +269,7 @@ Launch the full-featured Terminal User Interface for an interactive experience.
 fibcalc --tui
 ```
 
-### TUI Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `Tab` / `Shift+Tab` | Navigate between fields |
-| `Enter` | Confirm / Start calculation |
-| `Esc` | Cancel / Go back |
-| `q` / `Ctrl+C` | Quit |
-| `?` / `F1` | Help |
-| `c` | New calculation |
-| `m` | Compare all algorithms |
-| `t` | Change theme |
-| `s` | Settings |
-| `x` | Toggle hexadecimal display |
-| `v` | Toggle full value display |
-| `Ctrl+S` | Save result to file |
+See [TUI Mode](#-tui-mode) below for full documentation.
 
 **5. Large Number with FFT Tuning**
 Force FFT usage for a smaller threshold to test performance on lower-end hardware.
@@ -325,6 +311,76 @@ curl "http://localhost:8080/calculate?n=100&algo=fast"
   "algorithm": "fast"
 }
 ```
+
+---
+
+## 🖥️ TUI Mode
+
+The Terminal User Interface (TUI) provides a rich, interactive experience built with [Bubbletea](https://github.com/charmbracelet/bubbletea) (Charm stack).
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Visual Navigation** | Navigate between screens with keyboard shortcuts |
+| **Real-time Progress** | Animated progress bar with ETA calculation |
+| **Algorithm Comparison** | Side-by-side multi-algorithm comparison view |
+| **Theme Support** | Dark, light, and no-color themes (integrates with `NO_COLOR`) |
+| **Result Actions** | Save to file, toggle hex display, view full result |
+| **Settings Screen** | Configure default algorithm, theme, and options |
+
+### TUI vs CLI vs REPL
+
+| Mode | Best For | Launch Command |
+|------|----------|----------------|
+| **CLI** | Single calculations, scripting, automation | `fibcalc -n 1000` |
+| **REPL** | Multiple quick calculations in one session | `fibcalc --interactive` |
+| **TUI** | Visual exploration, comparing algorithms, learning | `fibcalc --tui` |
+
+### Launching TUI
+
+```bash
+# Start TUI mode
+fibcalc --tui
+
+# TUI respects theme settings
+NO_COLOR=1 fibcalc --tui    # No-color mode
+fibcalc --tui --theme light # Light theme
+```
+
+### TUI Screens
+
+1. **Home** - Main menu with navigation to all features
+2. **Calculator** - Input N value and select algorithm
+3. **Progress** - Real-time calculation progress with ETA
+4. **Results** - Display result with action options
+5. **Comparison** - Multi-algorithm benchmark comparison
+6. **Settings** - Configure themes and defaults
+7. **Help** - Full keyboard shortcut reference
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `Shift+Tab` | Navigate between fields |
+| `↑` / `↓` | Navigate lists and menus |
+| `Enter` | Confirm / Start calculation |
+| `Esc` | Cancel / Go back |
+| `q` / `Ctrl+C` | Quit |
+| `?` / `F1` | Help |
+| `c` | New calculation |
+| `m` | Compare all algorithms |
+| `t` | Change theme |
+| `s` | Settings |
+| `x` | Toggle hexadecimal display |
+| `v` | Toggle full value display |
+| `Ctrl+S` | Save result to file |
+
+### Terminal Requirements
+
+- Terminal supporting ANSI escape sequences (99% of modern terminals)
+- Recommended: Terminal with true color support (24-bit)
+- Works with: iTerm2, Terminal.app, Windows Terminal, GNOME Terminal, Konsole, Alacritty, Kitty, etc.
 
 ---
 

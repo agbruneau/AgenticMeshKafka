@@ -1,6 +1,6 @@
 # Fibonacci Calculator Architecture
 
-> **Version**: 1.2.0
+> **Version**: 1.3.0
 > **Last Updated**: January 2026
 
 ## Overview
@@ -13,20 +13,20 @@ The Fibonacci Calculator is designed according to **Clean Architecture** princip
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           ENTRY POINTS                                  │
 │                                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   CLI Mode  │  │ Server Mode │  │   Docker    │  │ REPL Mode   │    │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘    │
-│         │                │                │                │           │
-│         └────────────────┼────────────────┼────────────────┘           │
-│                          ▼                ▼                            │
-│                    ┌───────────────┐ ┌────────────────┐                │
-│                    │ cmd/fibcalc   │ │ internal/cli   │                │
-│                    │   main.go     │ │   repl.go      │                │
-│                    └───────┬───────┘ └───────┬────────┘                │
-└────────────────────────────┼─────────────────┼──────────────────────────┘
-                             │                 │
-                             └────────┬────────┘
-                                      │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐       │
+│  │   CLI   │  │ Server  │  │ Docker  │  │  REPL   │  │   TUI   │       │
+│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘       │
+│       │            │            │            │            │            │
+│       └────────────┼────────────┼────────────┼────────────┘            │
+│                    ▼            ▼            ▼                         │
+│              ┌───────────────┐ ┌────────────────┐ ┌────────────────┐   │
+│              │ cmd/fibcalc   │ │ internal/cli   │ │ internal/tui   │   │
+│              │   main.go     │ │   repl.go      │ │   tui.go       │   │
+│              └───────┬───────┘ └───────┬────────┘ └───────┬────────┘   │
+└──────────────────────┼─────────────────┼──────────────────┼─────────────┘
+                       │                 │                  │
+                       └─────────────────┼──────────────────┘
+                                         │
 ┌─────────────────────────────────────┼───────────────────────────────────┐
 │                   ORCHESTRATION LAYER                                   │
 │                                     ▼                                   │
@@ -70,13 +70,13 @@ The Fibonacci Calculator is designed according to **Clean Architecture** princip
 ┌────────────────────────────┼────────────────────────────────────────────┐
 │                   PRESENTATION LAYER                                    │
 │                            ▼                                           │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                      internal/cli                                │   │
-│  │  • Spinner and progress bar with ETA                            │   │
-│  │  • Result formatting                                             │   │
-│  │  • Colour themes (dark/light/none)                              │   │
-│  │  • NO_COLOR support                                              │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────┐  ┌────────────────────────────┐  │
+│  │         internal/cli             │  │       internal/tui         │  │
+│  │  • Spinner and progress bar      │  │  • Elm Architecture        │  │
+│  │  • Result formatting             │  │  • Navigation and views    │  │
+│  │  • Colour themes                 │  │  • Real-time progress      │  │
+│  │  • NO_COLOR support              │  │  • Theme integration       │  │
+│  └──────────────────────────────────┘  └────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -155,6 +155,28 @@ Command-line user interface:
 - **Interface Implementations** (`presenter.go`):
   - `CLIProgressReporter`: Implements `orchestration.ProgressReporter` for CLI progress display
   - `CLIResultPresenter`: Implements `orchestration.ResultPresenter` for CLI result formatting
+
+### `internal/tui`
+
+Rich Terminal User Interface using the Charm stack (Bubbletea, Bubbles, Lipgloss):
+
+- **`tui.go`**: Entry point, `tea.NewProgram()` initialization
+- **`model.go`**: Root Model with Elm Architecture (Init, Update, View)
+- **`messages.go`**: Message types for state updates (ProgressMsg, ResultMsg, etc.)
+- **`commands.go`**: Async commands for calculations and progress listening
+- **`keys.go`**: Keyboard bindings (navigation, actions, quit)
+- **`styles.go`**: Lipgloss styles integrated with `internal/ui` themes
+- **`presenter.go`**: Interface implementations:
+  - `TUIProgressReporter`: Bridges orchestration progress to Bubbletea messages
+  - `TUIResultPresenter`: No-op (TUI handles results via messages)
+- **View Files** (`view_*.go`):
+  - `view_home.go`: Main menu navigation
+  - `view_calculator.go`: Input N and algorithm selection
+  - `view_progress.go`: Real-time progress bar with ETA
+  - `view_results.go`: Result display with actions
+  - `view_comparison.go`: Multi-algorithm comparison
+  - `view_settings.go`: Theme and configuration
+  - `view_help.go`: Keyboard shortcuts reference
 
 ### `internal/config`
 
@@ -285,6 +307,62 @@ Centralised error handling:
       - status: Displays configuration
       - exit: Ends session
 4. Repeats until exit or EOF
+```
+
+### TUI Mode
+
+```
+1. main() detects --tui and calls app.runTUI()
+2. tui.Run() initializes tea.Program with alt-screen mode
+3. Model.Init() returns initial state (HomeView)
+4. Bubbletea event loop:
+   a. Update() receives messages (key events, progress updates, results)
+   b. Dispatches to view-specific update handler (updateHome, updateCalculator, etc.)
+   c. Returns updated model and commands
+   d. View() renders current state to terminal
+5. Calculation flow:
+   a. User enters N in calculator view, presses Enter
+   b. CalculationStartMsg triggers runCalculation command
+   c. Command spawns goroutine with TUIProgressReporter
+   d. ProgressMsg updates progress bar in real-time
+   e. CalculationResultMsg displays results view
+6. Program exits on quit key or Ctrl+C
+```
+
+#### TUI Architecture Pattern (Elm Architecture)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Bubbletea Runtime                     │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐           │
+│   │  Init   │───▶│ Update  │───▶│  View   │           │
+│   └─────────┘    └────┬────┘    └────┬────┘           │
+│                       │              │                 │
+│                       │              ▼                 │
+│                       │         ┌─────────┐           │
+│                       │         │ Render  │           │
+│                       │         │ Terminal│           │
+│                       │         └─────────┘           │
+│                       │                               │
+│                       ▼                               │
+│   ┌─────────────────────────────────────────┐        │
+│   │               Commands                   │        │
+│   │  • listenForProgress() - Channel bridge │        │
+│   │  • runCalculation() - Async calculation │        │
+│   │  • tickCmd() - Animation ticks          │        │
+│   └─────────────────────────────────────────┘        │
+│                       │                               │
+│                       ▼                               │
+│   ┌─────────────────────────────────────────┐        │
+│   │               Messages                   │        │
+│   │  • ProgressMsg, ResultMsg               │        │
+│   │  • KeyMsg, WindowSizeMsg                │        │
+│   │  • NavigateMsg, ThemeChangedMsg         │        │
+│   └─────────────────────────────────────────┘        │
+│                                                       │
+└───────────────────────────────────────────────────────┘
 ```
 
 ## Performance Considerations

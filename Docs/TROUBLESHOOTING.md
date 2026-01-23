@@ -1,7 +1,7 @@
 # Troubleshooting Guide
 
-> **Version**: 1.0.0  
-> **Last Updated**: December 2025
+> **Version**: 1.1.0
+> **Last Updated**: January 2026
 
 This guide helps diagnose and resolve common issues with the Fibonacci Calculator.
 
@@ -10,11 +10,12 @@ This guide helps diagnose and resolve common issues with the Fibonacci Calculato
 ## Table of Contents
 
 1. [CLI Issues](#cli-issues)
-2. [Server Issues](#server-issues)
-3. [Docker Issues](#docker-issues)
-4. [Kubernetes Issues](#kubernetes-issues)
-5. [Performance Issues](#performance-issues)
-6. [Build Issues](#build-issues)
+2. [TUI Issues](#tui-issues)
+3. [Server Issues](#server-issues)
+4. [Docker Issues](#docker-issues)
+5. [Kubernetes Issues](#kubernetes-issues)
+6. [Performance Issues](#performance-issues)
+7. [Build Issues](#build-issues)
 
 ---
 
@@ -97,6 +98,154 @@ export PATH=$PATH:$(go env GOPATH)/bin
    ```
 
 3. For piped output, progress is automatically disabled
+
+---
+
+## TUI Issues
+
+### TUI won't start
+
+**Symptom**: Error or immediate exit when running `fibcalc --tui`
+
+**Solutions**:
+
+1. Verify terminal supports ANSI escape sequences:
+
+   ```bash
+   echo $TERM  # Should be xterm-256color, screen-256color, etc.
+   ```
+
+2. Try a different terminal emulator (iTerm2, Windows Terminal, Alacritty)
+
+3. Check if running in a non-interactive context:
+   ```bash
+   # TUI requires interactive TTY
+   tty  # Should show a device, not "not a tty"
+   ```
+
+### Display corruption or garbled output
+
+**Symptom**: Characters display incorrectly, layout broken
+
+**Solutions**:
+
+1. Ensure terminal supports Unicode:
+
+   ```bash
+   echo $LANG  # Should include UTF-8, e.g., en_US.UTF-8
+   ```
+
+2. Try a different font with better Unicode support (e.g., JetBrains Mono, Fira Code)
+
+3. Reset terminal:
+   ```bash
+   reset
+   # Or: tput reset
+   ```
+
+4. Resize terminal window (sometimes triggers re-render)
+
+### Keyboard shortcuts not working
+
+**Symptom**: Keys don't respond as expected
+
+**Solutions**:
+
+1. Check for conflicting terminal keybindings (especially `Ctrl+S`, `Ctrl+C`)
+
+2. Disable terminal flow control if `Ctrl+S` freezes:
+
+   ```bash
+   stty -ixon
+   ```
+
+3. For SSH sessions, ensure proper terminal forwarding:
+   ```bash
+   ssh -t user@host "fibcalc --tui"
+   ```
+
+### Colors not displaying
+
+**Symptom**: TUI appears without colors or with wrong colors
+
+**Solutions**:
+
+1. Check color support:
+
+   ```bash
+   echo $COLORTERM  # Should be "truecolor" or "24bit" for best results
+   tput colors      # Should be 256 or higher
+   ```
+
+2. Verify `NO_COLOR` is not set:
+
+   ```bash
+   unset NO_COLOR
+   ```
+
+3. Try forcing color:
+   ```bash
+   COLORTERM=truecolor fibcalc --tui
+   ```
+
+### Progress bar not updating
+
+**Symptom**: Progress stays at 0% or doesn't animate
+
+**Solutions**:
+
+1. This is normal for very fast calculations (N < 10,000)
+
+2. For larger N, ensure calculation is actually running:
+
+   - Check CPU usage
+   - Wait for ETA to appear
+
+3. Terminal refresh issue - resize window to force redraw
+
+### TUI crashes or panics
+
+**Symptom**: Runtime panic or crash during TUI operation
+
+**Solutions**:
+
+1. Check Go version (requires 1.25+):
+
+   ```bash
+   go version
+   ```
+
+2. Update Charm dependencies:
+
+   ```bash
+   go get -u github.com/charmbracelet/bubbletea@latest
+   go get -u github.com/charmbracelet/bubbles@latest
+   go get -u github.com/charmbracelet/lipgloss@latest
+   ```
+
+3. Report bug with:
+   - Terminal type and version
+   - Operating system
+   - Steps to reproduce
+   - Full panic message
+
+### TUI slow or laggy
+
+**Symptom**: Sluggish response to keyboard input
+
+**Solutions**:
+
+1. Try simpler theme:
+
+   ```bash
+   fibcalc --tui --theme none
+   ```
+
+2. Reduce terminal size (less content to render)
+
+3. Check for resource constraints (CPU, memory)
+
+4. Disable GPU rendering in terminal if causing issues
 
 ---
 

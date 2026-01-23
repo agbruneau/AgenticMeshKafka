@@ -209,8 +209,110 @@ internal/
 │   └── *_test.go       # Tests alongside code
 ├── server/             # HTTP server
 ├── cli/                # Command-line interface
+├── tui/                # Terminal User Interface
 └── config/             # Configuration
 ```
+
+### TUI Development Guidelines
+
+The TUI uses the [Charm](https://charm.sh) stack following the Elm Architecture pattern.
+
+#### Package Structure
+
+```
+internal/tui/
+├── tui.go              # Entry point, tea.NewProgram()
+├── model.go            # Root model with state management
+├── messages.go         # Message types (*Msg structs)
+├── commands.go         # Async commands (tea.Cmd functions)
+├── keys.go             # Keyboard bindings
+├── styles.go           # Lipgloss styles
+├── presenter.go        # Interface implementations
+├── view_*.go           # View rendering (one per screen)
+└── tui_test.go         # Tests
+```
+
+#### Adding a New View
+
+1. Create `view_newview.go` with update handler and view renderer:
+
+   ```go
+   // view_newview.go
+   package tui
+
+   import tea "github.com/charmbracelet/bubbletea"
+
+   // Add state to Model in model.go:
+   // NewViewState struct { ... }
+
+   func (m Model) updateNewView(msg tea.Msg) (Model, tea.Cmd) {
+       switch msg := msg.(type) {
+       case tea.KeyMsg:
+           switch msg.String() {
+           case "esc":
+               m.currentView = ViewHome
+           }
+       }
+       return m, nil
+   }
+
+   func (m Model) viewNewView() string {
+       // Return rendered view using m.styles
+       return m.styles.Content.Render("New View Content")
+   }
+   ```
+
+2. Add view constant in `model.go`:
+
+   ```go
+   const (
+       ViewHome View = iota
+       // ...
+       ViewNewView
+   )
+   ```
+
+3. Register in `Update()` and `View()` switch statements
+
+#### Naming Conventions
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Messages | `*Msg` | `ProgressMsg`, `ResultMsg` |
+| Commands | `*Cmd` or verb function | `listenForProgress`, `runCalculation` |
+| Views | `view*` file, `View*` constant | `view_home.go`, `ViewHome` |
+| Update handlers | `update*` | `updateHome`, `updateCalculator` |
+| View renderers | `view*` method | `viewHome()`, `viewCalculator()` |
+| State structs | `*State` | `HomeState`, `ProgressState` |
+
+#### Testing TUI Components
+
+```go
+// tui_test.go
+func TestNewView(t *testing.T) {
+    m := NewModel()
+    m.currentView = ViewNewView
+
+    // Test update handling
+    newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+    if newModel.(Model).currentView != ViewHome {
+        t.Error("Esc should return to home")
+    }
+
+    // Test view rendering
+    view := m.View()
+    if !strings.Contains(view, "expected content") {
+        t.Error("View should contain expected content")
+    }
+}
+```
+
+#### Style Guidelines
+
+- Use `m.styles` for all styling (integrated with themes)
+- Call `m.styles.RefreshStyles(theme)` when theme changes
+- Test with all themes: dark, light, none
+- Respect `NO_COLOR` environment variable
 
 ## Testing Guidelines
 
@@ -334,13 +436,15 @@ Update documentation when:
 
 Documentation files:
 
-| File                   | Purpose                    |
-| ---------------------- | -------------------------- |
-| `README.md`            | Main project documentation |
-| `API.md`               | REST API reference         |
-| `Docs/ARCHITECTURE.md` | Architecture details       |
-| `Docs/PERFORMANCE.md`  | Performance tuning         |
-| `Docs/SECURITY.md`     | Security policy            |
+| File                       | Purpose                         |
+| -------------------------- | ------------------------------- |
+| `README.md`                | Main project documentation      |
+| `API.md`                   | REST API reference              |
+| `Docs/ARCHITECTURE.md`     | Architecture details            |
+| `Docs/PERFORMANCE.md`      | Performance tuning              |
+| `Docs/SECURITY.md`         | Security policy                 |
+| `Docs/TROUBLESHOOTING.md`  | Common issues and solutions     |
+| `TUI_PLAN.md`              | TUI implementation plan         |
 
 ## Reporting Issues
 
