@@ -2,10 +2,31 @@ package fibonacci
 
 import (
 	"math/big"
+	"runtime"
 	"sync"
 
 	"github.com/agbru/fibcalc/internal/parallel"
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task Concurrency Limiter
+// ─────────────────────────────────────────────────────────────────────────────
+
+// taskSemaphore limits the number of concurrent goroutines for multiplication
+// and squaring tasks. This prevents excessive goroutine creation which can
+// lead to contention and increased memory pressure.
+var taskSemaphore chan struct{}
+var taskSemaphoreOnce sync.Once
+
+// getTaskSemaphore returns the global task semaphore, initializing it
+// to runtime.NumCPU()*2 on the first call. The 2x multiplier allows for
+// some overlap between CPU-bound work and any I/O or synchronization waits.
+func getTaskSemaphore() chan struct{} {
+	taskSemaphoreOnce.Do(func() {
+		taskSemaphore = make(chan struct{}, runtime.NumCPU()*2)
+	})
+	return taskSemaphore
+}
 
 // MaxPooledBitLen is the maximum size (in bits) of a big.Int
 // accepted into the pool. Larger objects are left for GC collection.
@@ -79,12 +100,16 @@ func executeTasks[T any, PT interface {
 	task
 }](tasks []T, inParallel bool) error {
 	if inParallel {
+		sem := getTaskSemaphore()
 		var wg sync.WaitGroup
 		var ec parallel.ErrorCollector
 		wg.Add(len(tasks))
 		for i := range tasks {
 			go func(t PT) {
 				defer wg.Done()
+				// Acquire semaphore token to limit concurrency
+				sem <- struct{}{}
+				defer func() { <-sem }()
 				ec.SetError(t.execute())
 			}(PT(&tasks[i]))
 		}
@@ -117,6 +142,7 @@ func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, i
 	}
 
 	if inParallel {
+		sem := getTaskSemaphore()
 		var wg sync.WaitGroup
 		var ec parallel.ErrorCollector
 		wg.Add(totalTasks)
@@ -125,6 +151,9 @@ func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, i
 		for i := range sqrTasks {
 			go func(t *squaringTask) {
 				defer wg.Done()
+				// Acquire semaphore token to limit concurrency
+				sem <- struct{}{}
+				defer func() { <-sem }()
 				ec.SetError(t.execute())
 			}(&sqrTasks[i])
 		}
@@ -133,6 +162,9 @@ func executeMixedTasks(sqrTasks []squaringTask, mulTasks []multiplicationTask, i
 		for i := range mulTasks {
 			go func(t *multiplicationTask) {
 				defer wg.Done()
+				// Acquire semaphore token to limit concurrency
+				sem <- struct{}{}
+				defer func() { <-sem }()
 				ec.SetError(t.execute())
 			}(&mulTasks[i])
 		}

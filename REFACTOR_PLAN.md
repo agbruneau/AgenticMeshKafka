@@ -66,38 +66,42 @@ Ce plan couvre la refactorisation et l'optimisation du dépôt FibCalc, un calcu
 
 ---
 
-## Phase 4: Optimisations de Performance (Risque: ÉLEVÉ)
+## Phase 4: Optimisations de Performance (Risque: ÉLEVÉ) ✅ COMPLÉTÉE
 
-### 4.1 Optimiser zeroing manuel avec `clear()` (Go 1.21+)
+### 4.1 Optimiser zeroing manuel avec `clear()` (Go 1.21+) ✅
 **Fichiers**:
-- `internal/bigfft/pool.go` (lignes 62-66, 141-143, 209-211, 279-281)
-- `internal/bigfft/bump.go` (lignes 113-115)
+- `internal/bigfft/pool.go` - ✅ Remplacé toutes les boucles `for i := range slice { slice[i] = 0 }` par `clear(slice)`
+- `internal/bigfft/bump.go` - ✅ Remplacé la boucle de zeroing dans `Alloc()` par `clear(slice)`
 ```go
 // Avant: for i := range slice { slice[i] = 0 }
 // Après: clear(slice)
 ```
 
-### 4.2 Optimiser cache FFT avec pooling
-**Fichier**: `internal/bigfft/fft_cache.go` (lignes 149-160, 191-196)
-- Utiliser `acquireFermatSlice()` au lieu de `make()` pour copies
+### 4.2 Optimiser cache FFT avec pooling - DIFFÉRÉ
+**Fichier**: `internal/bigfft/fft_cache.go`
+- **Décision**: Différé - le pooling des copies de cache changerait l'API
+- Les copies dans `Get()` sont retournées au caller qui ne sait pas qu'il doit les libérer
+- Les copies dans `Put()` doivent persister dans le cache indéfiniment
+- Risque de memory leaks ou use-after-free si implémenté
 
-### 4.3 Limiter goroutines Strassen avec sémaphore
-**Fichier**: `internal/fibonacci/common.go` (lignes 77-100)
-- Ajouter `taskSemaphore` similaire à FFT recursion
-- Limiter à `runtime.NumCPU()*2` goroutines concurrentes
+### 4.3 Limiter goroutines Strassen avec sémaphore ✅
+**Fichier**: `internal/fibonacci/common.go`
+- ✅ Ajouté `taskSemaphore` avec capacité `runtime.NumCPU()*2`
+- ✅ Modifié `executeTasks()` pour acquérir/libérer token du sémaphore
+- ✅ Modifié `executeMixedTasks()` pour utiliser le même pattern
 
-### 4.4 Ajouter support context dans FFT (Optionnel)
-**Fichier**: `internal/bigfft/fft_recursion.go` (lignes 78-114)
-- Vérifier `ctx.Err()` avant acquisition sémaphore
-- Risque élevé - changement d'API significatif
+### 4.4 Ajouter support context dans FFT - DIFFÉRÉ (Optionnel)
+**Fichier**: `internal/bigfft/fft_recursion.go`
+- **Décision**: Différé - marqué optionnel dans le plan original
+- Risque élevé - changement d'API significatif qui affecterait de nombreux fichiers
 
 ---
 
-## Phase 5: Cohérence de Nommage (Risque: FAIBLE)
+## Phase 5: Cohérence de Nommage (Risque: FAIBLE) ✅ COMPLÉTÉE
 
-### 5.1 Documenter conventions de nommage
+### 5.1 Documenter conventions de nommage ✅
 **Fichier**: `internal/cli/output.go`
-- Ajouter documentation package expliquant:
+- ✅ Ajouté documentation package expliquant:
   - `Display*` = écrit vers io.Writer
   - `Format*` = retourne string
   - `Write*` = écrit vers fichier
@@ -123,8 +127,10 @@ Ce plan couvre la refactorisation et l'optimisation du dépôt FibCalc, un calcu
 | 2 | `internal/cli/repl.go` | Extraire runWithProgress | ✅ |
 | 2 | `internal/fibonacci/fastdoubling.go` | Supprimer lignes 264-280 | ✅ |
 | 3 | `internal/cli/ui.go` | Refactoriser DisplayResult | ✅ |
-| 4 | `internal/bigfft/pool.go` | Utiliser clear() | ⏳ |
-| 4 | `internal/fibonacci/common.go` | Ajouter taskSemaphore | ⏳ |
+| 4 | `internal/bigfft/pool.go` | Utiliser clear() | ✅ |
+| 4 | `internal/bigfft/bump.go` | Utiliser clear() | ✅ |
+| 4 | `internal/fibonacci/common.go` | Ajouter taskSemaphore | ✅ |
+| 5 | `internal/cli/output.go` | Documenter conventions nommage | ✅ |
 
 ---
 
@@ -163,8 +169,8 @@ go run ./cmd/fibcalc --interactive
 Phase 1 (Tests) ✅
     → Phase 2 (Déduplication) ✅
         → Phase 3 (Complexité) ✅
-            → Phase 4 (Performance)
-                → Phase 5 (Nommage)
+            → Phase 4 (Performance) ✅
+                → Phase 5 (Nommage) ✅
 ```
 
 Chaque phase est indépendamment testable et déployable.

@@ -59,10 +59,8 @@ func acquireWordSlice(size int) []big.Word {
 		return make([]big.Word, size)
 	}
 	slice := wordSlicePools[idx].Get().([]big.Word)
-	// Clear the slice before returning
-	for i := range slice {
-		slice[i] = 0
-	}
+	// Clear the slice before returning (Go 1.21+ built-in)
+	clear(slice)
 	return slice[:size]
 }
 
@@ -137,10 +135,8 @@ func acquireFermat(size int) fermat {
 		return make(fermat, size)
 	}
 	f := fermatPools[idx].Get().(fermat)
-	// Clear and resize
-	for i := range f {
-		f[i] = 0
-	}
+	// Clear and resize (Go 1.21+ built-in)
+	clear(f)
 	return f[:size]
 }
 
@@ -206,10 +202,8 @@ func acquireNatSlice(size int) []nat {
 		return make([]nat, size)
 	}
 	slice := natSlicePools[idx].Get().([]nat)
-	// Clear the slice
-	for i := range slice {
-		slice[i] = nil
-	}
+	// Clear the slice (Go 1.21+ built-in)
+	clear(slice)
 	return slice[:size]
 }
 
@@ -275,10 +269,8 @@ func acquireFermatSlice(size int) []fermat {
 		return make([]fermat, size)
 	}
 	slice := fermatSlicePools[idx].Get().([]fermat)
-	// Clear the slice
-	for i := range slice {
-		slice[i] = nil
-	}
+	// Clear the slice (Go 1.21+ built-in)
+	clear(slice)
 	return slice[:size]
 }
 
@@ -343,18 +335,14 @@ func acquireFFTState(n int, k uint) *fftState {
 		state.tmp = acquireFermat(tmpSize)
 	} else {
 		state.tmp = state.tmp[:tmpSize]
-		for i := range state.tmp {
-			state.tmp[i] = 0
-		}
+		clear(state.tmp)
 	}
 
 	if cap(state.tmp2) < tmpSize {
 		state.tmp2 = acquireFermat(tmpSize)
 	} else {
 		state.tmp2 = state.tmp2[:tmpSize]
-		for i := range state.tmp2 {
-			state.tmp2[i] = 0
-		}
+		clear(state.tmp2)
 	}
 
 	state.n = n

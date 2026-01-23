@@ -1,4 +1,20 @@
 // Package cli provides output utilities for exporting calculation results.
+//
+// # Naming Conventions
+//
+// Functions in this package follow consistent naming patterns based on their behavior:
+//
+//   - Display* functions write formatted output to an [io.Writer].
+//     They handle presentation logic and colorization.
+//     Examples: [DisplayResult], [DisplayQuietResult], [DisplayProgress].
+//
+//   - Format* functions return a formatted string without performing I/O.
+//     They are pure functions suitable for composition.
+//     Examples: [FormatQuietResult], [FormatExecutionDuration].
+//
+//   - Write* functions write data to files on the filesystem.
+//     They handle file creation, directory setup, and error handling.
+//     Examples: [WriteResultToFile].
 package cli
 
 import (

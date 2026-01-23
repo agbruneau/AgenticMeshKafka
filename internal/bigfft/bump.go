@@ -110,10 +110,8 @@ func (ba *BumpAllocator) Alloc(n int) []big.Word {
 	slice := ba.buffer[ba.offset : ba.offset+n]
 	ba.offset += n
 
-	// Zero the slice for safety
-	for i := range slice {
-		slice[i] = 0
-	}
+	// Zero the slice for safety (Go 1.21+ built-in)
+	clear(slice)
 
 	return slice
 }

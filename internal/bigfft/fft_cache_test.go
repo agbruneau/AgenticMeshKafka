@@ -69,16 +69,19 @@ func TestSetTransformCacheConfig(t *testing.T) {
 	t.Run("Set config with disabled cache clears entries", func(t *testing.T) {
 		t.Parallel()
 		// First enable and add some entries using Put
+		// Note: MinBitLen must be lower than testData size for Put to accept the entry
+		// testData has 2000 words = 2000 * 64 bits = 128000 bits on 64-bit systems
 		config1 := TransformCacheConfig{
 			MaxEntries: 64,
-			MinBitLen:  50000,
+			MinBitLen:  1000, // Low threshold to ensure our test data is accepted
 			Enabled:    true,
 		}
 		SetTransformCacheConfig(config1)
 
 		cache := GetTransformCache()
 		// Add a real entry using Put
-		testData := make(nat, 100)
+		// Need enough words to exceed MinBitLen (1000 bits = ~16 words on 64-bit)
+		testData := make(nat, 2000) // 2000 words = 128000 bits on 64-bit
 		testData[0] = big.Word(123)
 		mockValues := PolValues{
 			K:      4,
